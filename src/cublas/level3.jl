@@ -8,7 +8,7 @@ for (f,T,Ct) in (
             alpha::$T, A::CuVecOrMat{$T}, B::CuVecOrMat{$T},
             beta::$T, C::CuVecOrMat{$T})
 
-            @assert getdevice(A) == getdevice(B) == getdevice(C)
+            @assert getdevice() == getdevice(A) == getdevice(B) == getdevice(C)
             m = size(A, tA == 'N' ? 1 : 2)
             k = size(A, tA == 'N' ? 2 : 1)
             n = size(B, tB == 'N' ? 2 : 1)
@@ -21,7 +21,7 @@ for (f,T,Ct) in (
                 Ptr{$Ct},Ptr{$Ct},Cint,
                 Ptr{$Ct},Cint,
                 Ptr{$Ct},Ptr{$Ct},Cint),
-                handle(C), cublasop(tA), cublasop(tB), m, n, k,
+                handle(), cublasop(tA), cublasop(tB), m, n, k,
                 $T[alpha], A, stride(A,2), B, stride(B,2), $T[beta], C, stride(C,2))
             C
         end

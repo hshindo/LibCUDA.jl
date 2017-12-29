@@ -25,10 +25,10 @@ function errorstring(status)
     throw("UNKNOWN ERROR")
 end
 
-macro apicall(f, args...)
+macro apicall(f, rettypes, args...)
     f = get(define, f.args[1], f.args[1])
     quote
-        status = ccall(($(QuoteNode(f)),libcublas), Cint, $(map(esc,args)...))
+        status = ccall(($(QuoteNode(f)),libcublas), Cint, $(esc(rettypes)), $(map(esc,args)...))
         if status != 0
             Base.show_backtrace(STDOUT, backtrace())
             throw(errorstring(status))
@@ -38,7 +38,8 @@ end
 
 const Handles = Ptr{Void}[]
 
-function handle(dev::Int)
+function handle()
+    dev = getdevice()
     while length(Handles) < dev + 1
         push!(Handles, Ptr{Void}(0))
     end
@@ -52,11 +53,14 @@ function handle(dev::Int)
     end
     h
 end
-handle(x::CuArray) = handle(getdevice(x))
 
 const API_VERSION = begin
+    ref = Ref{Ptr{Void}}()
+    @apicall :cublasCreate (Ptr{Void},) ref
+    h = ref[]
     ref = Ref{Cint}()
-    @apicall :cublasGetVersion (Ptr{Void},Ptr{Cint}) handle(0) ref
+    @apicall :cublasGetVersion (Ptr{Void},Ptr{Cint}) h ref
+    @apicall :cublasDestroy (Ptr{Void},) h
     Int(ref[])
 end
 info("CUBLAS API $API_VERSION")

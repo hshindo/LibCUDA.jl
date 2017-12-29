@@ -7,6 +7,8 @@ mutable struct CuPtr
 end
 
 function CuPtr(bytesize::Int)
+    @assert bytesize >= 0
+    bytesize == 0 && return CuPtr(zero(UInt64),-1,-1)
     dev = getdevice()
     bufid = (bytesize-1) >> 10 + 1
     bytesize = bufid << 10
