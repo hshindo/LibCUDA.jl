@@ -1,7 +1,7 @@
 export CuArray, CuVector, CuMatrix, CuVecOrMat
-export curand, curandn
+export cu, curand, curandn
 
-mutable struct CuArray{T,N}
+mutable struct CuArray{T,N} <: AbstractArray{T,N}
     ptr::CuPtr
     dims::NTuple{N,Int}
 end
@@ -16,6 +16,7 @@ function CuArray{T}(dims::NTuple{N,Int}) where {T,N}
 end
 CuArray{T}(dims::Int...) where T = CuArray{T}(dims)
 CuArray(x::Array{T,N}) where {T,N} = copy!(CuArray{T}(size(x)), x)
+cu(x::Array) = CuArray(x)
 
 Base.length(x::CuArray) = prod(x.dims)
 Base.size(x::CuArray) = x.dims
@@ -33,9 +34,6 @@ Base.strides(x::CuArray{T,1}) where T = (1,)
 Base.strides(x::CuArray{T,2}) where T = (1,size(x,1))
 Base.strides(x::CuArray{T,3}) where T = (1,size(x,1),size(x,1)*size(x,2))
 Base.strides(x::CuArray{T,4}) where T = (1,size(x,1),size(x,1)*size(x,2),size(x,1)*size(x,2)*size(x,3))
-function Base.strides(x::CuArray{T,N}) where {T,N}
-    throw("Not implemented yet.")
-end
 
 Base.similar(x::CuArray{T}) where T = CuArray{T}(size(x))
 Base.similar(x::CuArray{T}, dims::NTuple) where T = CuArray{T}(dims)
@@ -129,11 +127,11 @@ Base.show(io::IO, ::Type{CuArray{T,N}}) where {T,N} = print(io, "CuArray{$T,$N}"
 function Base.showarray(io::IO, X::CuArray, repr::Bool=true; header=true)
     if repr
         print(io, "CuArray(")
-        Base.showarray(io, collect(X), true)
+        Base.showarray(io, Array(X), true)
         print(io, ")")
     else
         header && println(io, summary(X), ":")
-        Base.showarray(io, collect(X), false, header = false)
+        Base.showarray(io, Array(X), false, header = false)
     end
 end
 
@@ -142,12 +140,14 @@ function curand(::Type{T}, dims::NTuple{N,Int}) where {T,N}
     CuArray(rand(T,dims))
 end
 curand(::Type{T}, dims::Int...) where T = curand(T, dims)
+curand(dims::Int...) = curand(Float64, dims)
 
 function curandn(::Type{T}, dims::NTuple{N,Int}) where {T,N}
     # TODO: use curand library
     CuArray(randn(T,dims))
 end
 curandn(::Type{T}, dims::Int...) where T = curandn(T, dims)
+curandn(dims::Int...) = curandn(Float64, dims)
 
 getdevice(x::CuArray) = x.ptr.dev
 

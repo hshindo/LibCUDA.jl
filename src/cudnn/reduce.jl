@@ -19,7 +19,7 @@ end
 
 Base.unsafe_convert(::Type{Ptr{Void}}, desc::ReduceTensorDesc) = desc.ptr
 
-function reduce(op, A::CuArray{T}) where T
+function reduce(A::CuArray{T}, dim, op) where T
     h = handle()
     reducedesc = ReduceTensorDesc(T, op)
     adesc = TensorDesc(A, 4)
@@ -30,11 +30,15 @@ function reduce(op, A::CuArray{T}) where T
     cdesc = TensorDesc(C, 4)
 
     ref = Ref{Csize_t}()
-    @apicall :cudnnGetReductionIndicesSize (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Csize_t}) h reducedesc adesc cdesc ref
+    @apicall(:cudnnGetReductionIndicesSize,
+        (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Csize_t}),
+        h, reducedesc, adesc, cdesc, ref)
     indices = CuArray{UInt8}(Int(ref[]))
 
     ref = Ref{Csize_t}()
-    @apicall :cudnnGetReductionWorkspaceSize (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Csize_t}) h reducedesc adesc cdesc ref
+    @apicall(:cudnnGetReductionWorkspaceSize,
+        (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Csize_t}),
+        h, reducedesc, adesc, cdesc, ref)
     workspace = CuArray{UInt8}(Int(ref[]))
 
     @apicall(:cudnnReduceTensor,
@@ -42,4 +46,25 @@ function reduce(op, A::CuArray{T}) where T
         Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void}),
         h, reducedesc, indices, length(indices), workspace, length(workspace),
         [one(T)], adesc, A, [zero(T)], cdesc, C)
+
+    isempty(indices) ? C : (C,CuArray{Cint}(indices))
 end
+
+Base.sum(x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_ADD)
+mul(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MUL)
+Base.findmax(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MAX)
+Base.findmin(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MIN)
+# maxabs(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AMAX)
+Base.mean(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AVG)
+#=
+function Base.norm(x::CuArray, dim, p::Int)
+    if p == 1
+        reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM1)
+    elseif p == 2
+        reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM2)
+    else
+        throw("Not supported in CUDNN.")
+    end
+end
+mul_nozeros(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MUL_NO_ZEROS)
+=#

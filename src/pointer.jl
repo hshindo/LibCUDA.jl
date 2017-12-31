@@ -8,8 +8,11 @@ end
 
 function CuPtr(bytesize::Int)
     @assert bytesize >= 0
-    bytesize == 0 && return CuPtr(zero(UInt64),-1,-1)
     dev = getdevice()
+    if dev < 0
+        throw("GPU device is not set. Call `setdevice(dev)`.")
+    end
+    bytesize == 0 && return CuPtr(zero(UInt64),-1,dev)
     bufid = (bytesize-1) >> 10 + 1
     bytesize = bufid << 10
 

@@ -2,7 +2,7 @@ mutable struct DropoutDesc
     ptr::Ptr{Void}
 end
 
-function DropoutDesc(droprate::Float64; seed=rand(UInt64))
+function DropoutDesc(droprate::Float64, seed)
     ref = Ref{Ptr{Void}}()
     @apicall :cudnnCreateDropoutDescriptor (Ptr{Ptr{Void}},) ref
     desc = DropoutDesc(ref[])
@@ -21,7 +21,14 @@ end
 
 Base.unsafe_convert(::Type{Ptr{Void}}, desc::DropoutDesc) = desc.ptr
 
-function dropout(x::CuArray, droprate::Float64; seed=rand(UInt64))
+struct Dropout
+    desc
+    xdesc
+    y
+    reservespace
+end
+
+function dropout(x::CuArray, droprate::Float64; seed=0)
     dropdesc = Dropout(droprate, seed)
     xdesc = TensorDesc(x, 4)
 
@@ -29,17 +36,19 @@ function dropout(x::CuArray, droprate::Float64; seed=rand(UInt64))
     @apicall :cudnnDropoutGetReserveSpaceSize (Ptr{Void},Ptr{Csize_t}) xdesc ref
     reservespace = CuArray{UInt8}(Int(ref[]))
 
+    y = similar(x)
     @apicall(:cudnnDropoutForward,
         (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},
         Ptr{Void},Ptr{Void},Ptr{Void},Csize_t),
         handle(), dropdesc, xdesc, x, ydesc, y, reservespace, length(reservespace))
 
-    dropdesc, xdesc, x, ydesc, y, reservespace
+    Dropout(dropdesc, xdesc, y, reservespace)
 end
 
-function ∇dropout!(dropdesc::DropoutDesc, dydesc, dy, dxdesc, dx, reservespace)
+function ∇dropout!(d::Dropout, dy, dx)
+    h = handle()
     @apicall(:cudnnDropoutBackward,
         (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},
         Ptr{Void},Ptr{Void},Ptr{Void},Csize_t),
-        handle(), dropdesc, dydesc, dy, dxdesc, dx, reservespace, length(reservespace))
+        h, d.desc, d.xdesc, dy, d.xdesc, dx, d.reservespace, length(d.reservespace))
 end

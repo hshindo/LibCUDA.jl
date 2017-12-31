@@ -10,7 +10,7 @@ function RNNDesc(::Type{T}, hsize::Int, nlayers::Int, droprate::Float64, dir, al
 
     dropdesc = DropoutDesc(droprate)
     @apicall(:cudnnSetRNNDescriptor,
-        (Ptr{Void},Cint,Cint,Ptr{Void},Cint,Cint,,Cint,Cint,Cint),
+        (Ptr{Void},Cint,Cint,Ptr{Void},Cint,Cint,Cint,Cint,Cint),
         desc, hsize, nlayers, dropdesc, CUDNN.CUDNN_LINEAR_INPUT, dir, mode, algo, datatype(T))
     desc
 end

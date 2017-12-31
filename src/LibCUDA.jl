@@ -33,8 +33,9 @@ macro apicall(f, args...)
     end
 end
 
+CurrentDevice = -1
+
 include("device.jl")
-include("context.jl")
 include("stream.jl")
 include("pointer.jl")
 include("module.jl")
