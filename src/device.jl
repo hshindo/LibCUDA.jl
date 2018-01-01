@@ -1,6 +1,36 @@
 export ndevices, getdevice, setdevice, synchronize
 
-const CuContexts = Ptr{Void}[]
+mutable struct CuContext
+    ptr::Ptr{Void}
+
+    function CuContext(dev::Int)
+        ref = Ref{Ptr{Void}}()
+        @apicall :cuCtxCreate (Ptr{Ptr{Void}},Cuint,Cint) ref 0 dev
+        ctx = new(ref[])
+        #finalizer(ctx, destroy)
+        ctx
+    end
+end
+
+Base.convert(::Type{Ptr{Void}}, x::CuContext) = x.ptr
+Base.unsafe_convert(::Type{Ptr{Void}}, x::CuContext) = x.ptr
+
+function destroy(ctx::CuContext)
+    println("context destroy...")
+    @apicall :cuCtxDestroy (Ptr{Void},) ctx
+end
+
+#=
+atexit() do
+    for ctx in CuContexts
+        println(ctx)
+        ctx == Ptr{Void}(0) && continue
+        #@apicall :cuCtxSetCurrent (Ptr{Void},) ctx
+        #@apicall :cuCtxDestroy (Ptr{Void},) ctx
+        println("destroyed")
+    end
+end
+=#
 
 function getdevice()
     # ref = Ref{Cint}()
@@ -12,15 +42,16 @@ end
 function setdevice(dev::Int)
     @assert dev >= 0
     dev == getdevice() && return
-    while length(CuContexts) < dev + 1
-        push!(CuContexts, Ptr{Void}(0))
-    end
-    if CuContexts[dev+1] == Ptr{Void}(0)
-        ref = Ref{Ptr{Void}}()
-        @apicall :cuCtxCreate (Ptr{Ptr{Void}},Cuint,Cint) ref 0 dev
-        ctx = ref[]
+    #while length(CuContexts) < dev + 1
+    #    push!(CuContexts, Ptr{Void}(0))
+    #end
+    #if CuContexts[dev+1] == Ptr{Void}(0)
+    if !isassigned(CuContexts, dev+1)
+        #ref = Ref{Ptr{Void}}()
+        #@apicall :cuCtxCreate (Ptr{Ptr{Void}},Cuint,Cint) ref 0 dev
+        #ctx = ref[]
+        ctx = CuContext(dev)
         CuContexts[dev+1] = ctx
-        atexit(() -> @apicall :cuCtxDestroy (Ptr{Void},) ctx)
 
         cap = capability(dev)
         mem = round(Int, totalmem(dev) / (1024^2))
@@ -38,6 +69,7 @@ function ndevices()
     @apicall :cuDeviceGetCount (Ptr{Cint},) ref
     Int(ref[])
 end
+const CuContexts = Array{CuContext}(ndevices())
 
 function devicename(dev::Int)
     buflen = 256

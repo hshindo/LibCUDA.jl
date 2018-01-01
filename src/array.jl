@@ -68,10 +68,10 @@ function Base.copy!(dest::CuArray{T}, src::CuArray{T}; stream=C_NULL) where T
     dest
 end
 function Base.copy!(dest::CuArray{T}, doffs::Int, src::CuArray{T}, soffs::Int, n::Int; stream=C_NULL) where T
-    _dest = pointer(dest, doffs)
-    _src = pointer(src, soffs)
+    p_dest = pointer(dest, doffs)
+    p_src = pointer(src, soffs)
     nbytes = n * sizeof(T)
-    @apicall :cuMemcpyDtoDAsync (Ptr{Void},Ptr{Void},Csize_t,Ptr{Void}) _dest _src nbytes stream
+    @apicall :cuMemcpyDtoDAsync (Ptr{Void},Ptr{Void},Csize_t,Ptr{Void}) p_dest p_src nbytes stream
     dest
 end
 
@@ -90,7 +90,8 @@ Base.fill(::Type{CuArray}, value::T, dims::NTuple) where T = fill!(CuArray{T}(di
         if (idx < length) x[idx] = value;
     }""")
     quote
-        launch($f, CuDim3(1,1,1), CuDim3(256,1,1), x.ptr, length(x), T(value))
+        gdims, bdims = cudims(length(x))
+        culaunch($f, gdims, bdims, x.ptr, length(x), T(value))
         x
     end
 end
@@ -118,8 +119,6 @@ function Base.setindex!{T,N}(y::CuArray{T,N}, x::CuArray{T,N}, indexes...)
     else
         throw("Not implemented yet.")
     end
-    #xx = view(x, key...)
-    #copy!(xx, value)
 end
 
 Base.show(io::IO, ::Type{CuArray{T,N}}) where {T,N} = print(io, "CuArray{$T,$N}")
@@ -182,6 +181,3 @@ reshape3{T}(x::CuArray{T,3}) = x
     end
 end
 =#
-
-#import Base: *
-#*(A::CuMatrix{T}, B::CuMatrix{T}) where T = BLAS.gemm('N', 'N', T(1), A, B)

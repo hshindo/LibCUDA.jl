@@ -28,7 +28,7 @@ const API_VERSION = begin
 end
 info("NVRTC API $API_VERSION")
 
-function compile(code::String; headers=(), include_names=(), options=[])
+function compile(code::String; headers=[], include_names=[], options=[])
     ref = Ref{Ptr{Void}}()
     headers = Ptr{UInt8}[pointer(h) for h in headers]
     include_names = Ptr{UInt8}[pointer(n) for n in include_names]

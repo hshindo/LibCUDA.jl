@@ -33,7 +33,7 @@ function reduce(A::CuArray{T}, dim, op) where T
     @apicall(:cudnnGetReductionIndicesSize,
         (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Csize_t}),
         h, reducedesc, adesc, cdesc, ref)
-    indices = CuArray{UInt8}(Int(ref[]))
+    indices = CuArray{Cint}(Int(ref[])÷sizeof(Cint))
 
     ref = Ref{Csize_t}()
     @apicall(:cudnnGetReductionWorkspaceSize,
@@ -44,27 +44,25 @@ function reduce(A::CuArray{T}, dim, op) where T
     @apicall(:cudnnReduceTensor,
         (Ptr{Void},Ptr{Void},Ptr{Void},Csize_t,Ptr{Void},Csize_t,
         Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void}),
-        h, reducedesc, indices, length(indices), workspace, length(workspace),
-        [one(T)], adesc, A, [zero(T)], cdesc, C)
+        h, reducedesc, indices, length(indices)*sizeof(Cint), workspace, length(workspace),
+        [T(1)], adesc, A, [T(0)], cdesc, C)
 
-    isempty(indices) ? C : (C,CuArray{Cint}(indices))
+    isempty(indices) ? C : (C,indices)
 end
 
 Base.sum(x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_ADD)
 mul(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MUL)
 Base.findmax(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MAX)
 Base.findmin(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MIN)
-# maxabs(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AMAX)
+Base.maximum(::typeof(abs), x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AMAX)
 Base.mean(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AVG)
-#=
-function Base.norm(x::CuArray, dim, p::Int)
+function Base.norm(x::CuArray, dim::Int, p::Int)
     if p == 1
         reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM1)
     elseif p == 2
         reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM2)
     else
-        throw("Not supported in CUDNN.")
+        throw("Not supported. Valid p: 1 or 2.")
     end
 end
-mul_nozeros(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MUL_NO_ZEROS)
-=#
+# mul_nozeros(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MUL_NO_ZEROS)

@@ -1,3 +1,5 @@
+export CuFunction
+
 mutable struct CuFunction
     ptr::Ptr{Void}
     mod::CuModule # avoid CuModule gc-ed

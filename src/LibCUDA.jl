@@ -35,17 +35,21 @@ end
 
 CurrentDevice = -1
 
+cstring(::Type{Float32}) = "float"
+cstring(::Type{Int}) = "int"
+
 include("device.jl")
 include("stream.jl")
 include("pointer.jl")
 include("module.jl")
 include("function.jl")
 include("execution.jl")
-include("interop.jl")
 
 include("NVRTC.jl")
 include("array.jl")
 include("arraymath.jl")
+# include("cat.jl")
+include("devicearray.jl")
 include("cublas/CUBLAS.jl")
 include("cudnn/CUDNN.jl")
 

@@ -5,7 +5,7 @@ end
 function CuModule(ptx::String)
     ref = Ref{Ptr{Void}}()
     @apicall :cuModuleLoadData (Ptr{Ptr{Void}},Ptr{Void}) ref pointer(ptx)
-    mod = new(ref[])
+    mod = CuModule(ref[])
     finalizer(mod, m -> @apicall :cuModuleUnload (Ptr{Void},) m)
     mod
 end

@@ -6,6 +6,13 @@ Base.isapprox(x::Array, y::CuArray) = isapprox(x, Array(y))
 setdevice(0)
 T = Float32
 
+@testset "array" for i=1:5
+    x = randn(T, 10, 5)
+    cux = cu(x)
+    fill!(cux, 3)
+    @test all(v -> v == T(3), Array(cux))
+end
+
 @testset "reduce" for i = 1:5
     x = randn(T, 10, 5, 3)
     for dim = 1:ndims(x)
@@ -20,7 +27,15 @@ T = Float32
         y, idx = findmax(x, dim)
         cuy, cuidx = findmax(cu(x), dim)
         @test y ≈ cuy
-        @test idx ≈ cuidx
+        # @test idx ≈ cuidx
+
+        y, idx = findmin(x, dim)
+        cuy, cuidx = findmin(cu(x), dim)
+        @test y ≈ cuy
+
+        y = maximum(abs, x, dim)
+        cuy = maximum(abs, cu(x), dim)
+        @test y ≈ cuy
     end
 end
 

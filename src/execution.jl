@@ -1,17 +1,17 @@
-export cubox
+export cubox, culaunch
 
 cubox(x) = x
 cubox(x::Int) = Cint(x)
 cubox{N}(t::NTuple{N,Int}) = map(Cint, t)
-cubox(x::Vector{Int}) = ntuple(i -> Cint(x[i]), length(x))
 
-struct CuDim3
-    x::Int
-    y::Int
-    z::Int
+function cudims(n::Int)
+    bx = 256
+    gx = n <= bx ? 1 : ceil(Int, n/bx)
+    (gx,1,1), (bx,1,1)
 end
 
-function launch(f::CuFunction, griddims::CuDim3, blockdims::CuDim3, args...; sharedmem=0, stream=C_NULL)
+
+function culaunch(f::CuFunction, griddims::NTuple{3,Int}, blockdims::NTuple{3,Int}, args...; sharedmem=0, stream=C_NULL)
     argptrs = Ptr{Void}[pointer_from_objref(cubox(a)) for a in args]
     @apicall(:cuLaunchKernel, (
         Ptr{Void},           # function
@@ -22,7 +22,7 @@ function launch(f::CuFunction, griddims::CuDim3, blockdims::CuDim3, args...; sha
         Ptr{Ptr{Void}},         # kernel parameters
         Ptr{Ptr{Void}}),         # extra parameters
         f,
-        griddims.x, griddims.y, griddims.z,
-        blockdims.x, blockdims.y, blockdims.z,
+        griddims[1], griddims[2], griddims[3],
+        blockdims[1], blockdims[2], blockdims[3],
         sharedmem, stream, argptrs, C_NULL)
 end
