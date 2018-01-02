@@ -44,13 +44,13 @@ Base.convert(::Type{UInt64}, x::CuArray) = UInt64(x.ptr)
 Base.unsafe_convert(::Type{Ptr{T}}, x::CuArray) where T = Ptr{T}(x.ptr)
 Base.unsafe_convert(::Type{UInt64}, x::CuArray) = UInt64(x.ptr)
 
-Base.zeros(x::CuArray{T,N}) where {T,N} = zeros(CuArray{T}, a.dims)
+Base.zeros(x::CuArray{T,N}) where {T,N} = zeros(CuArray{T}, x.dims)
 Base.zeros(::Type{CuArray{T}}, dims::Int...) where T = zeros(CuArray{T}, dims)
 Base.zeros(::Type{CuArray{T}}, dims::NTuple) where T = fill(CuArray, T(0), dims)
 
-Base.ones(x::CuArray{T}) where T = ones(CuArray{T}, a.dims)
+Base.ones(x::CuArray{T}) where T = ones(CuArray{T}, x.dims)
 Base.ones(::Type{CuArray{T}}, dims::Int...) where T  = ones(CuArray{T}, dims)
-Base.ones(::Type{CuArray{T}}, dims) where T = fill(CuArray, T(1), dims)
+Base.ones(::Type{CuArray{T}}, dims::NTuple) where T = fill(CuArray, T(1), dims)
 
 function Base.copy!(dest::Array{T}, src::CuArray{T}; stream=C_NULL) where T
     nbytes = length(src) * sizeof(T)

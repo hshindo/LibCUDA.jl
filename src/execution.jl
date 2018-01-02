@@ -10,7 +10,6 @@ function cudims(n::Int)
     (gx,1,1), (bx,1,1)
 end
 
-
 function culaunch(f::CuFunction, griddims::NTuple{3,Int}, blockdims::NTuple{3,Int}, args...; sharedmem=0, stream=C_NULL)
     argptrs = Ptr{Void}[pointer_from_objref(cubox(a)) for a in args]
     @apicall(:cuLaunchKernel, (

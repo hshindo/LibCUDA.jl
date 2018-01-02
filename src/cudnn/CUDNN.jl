@@ -7,9 +7,7 @@ if is_windows()
 else
     const libcudnn = Libdl.find_library(["libcudnn"])
 end
-if isempty(libcudnn)
-    warn("CUDNN library cannot be found.")
-end
+isempty(libcudnn) && throw("CUDNN library cannot be found.")
 
 const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
 info("CUDNN API $API_VERSION")
@@ -57,7 +55,5 @@ include("reduce.jl")
 include("rnn.jl")
 include("softmax.jl")
 include("tensor.jl")
-
-#Base.unsafe_convert(::Type{Ptr{Void}}, desc::FilterDesc) = desc.ptr
 
 end

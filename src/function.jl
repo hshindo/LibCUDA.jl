@@ -12,9 +12,6 @@ function CuFunction(mod::CuModule, name::String)
 end
 
 function CuFunction(code::String)
-    #contains(code, "Array<") && (code = "$(Interop.array_h)\n$code")
-    #contains(code, "Ranges<") && (code = "$range_h\n$code")
-
     ptx = NVRTC.compile(code)
     mod = CuModule(ptx)
 

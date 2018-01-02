@@ -7,7 +7,7 @@ if is_windows()
 else
     const libcublas = Libdl.find_library(["libcublas"])
 end
-isempty(libcublas) && warn("CUBLAS library cannot be found.")
+isempty(libcublas) && throw("CUBLAS library cannot be found.")
 
 include("define.jl")
 

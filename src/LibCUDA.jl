@@ -5,18 +5,23 @@ if is_windows()
 else
     const libcuda = Libdl.find_library(["libcuda"])
 end
-if isempty(libcuda)
-    warn("CUDA library cannot be found.")
-end
+const Configured = !isempty(libcuda)
+Configured || warn("CUDA library cannot be found. LibCUDA does not work correctly.")
 
-ccall((:cuInit,libcuda), Cint, (Cint,), 0)
+if Configured
+    ccall((:cuInit,libcuda), Cint, (Cint,), 0)
+end
 
 const API_VERSION = begin
-    ref = Ref{Cint}()
-    ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
-    Int(ref[])
+    if Configured
+        ref = Ref{Cint}()
+        ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
+        Int(ref[])
+    else
+        -1
+    end
 end
-info("CUDA API $API_VERSION")
+Configured && info("CUDA API $API_VERSION")
 
 include("define.jl")
 
@@ -39,21 +44,25 @@ cstring(::Type{Float32}) = "float"
 cstring(::Type{Int}) = "int"
 
 include("device.jl")
+include("memory.jl")
 include("stream.jl")
 include("pointer.jl")
 include("module.jl")
 include("function.jl")
 include("execution.jl")
+Configured && include("NVRTC.jl")
 
-include("NVRTC.jl")
 include("array.jl")
 include("arraymath.jl")
 # include("cat.jl")
 include("devicearray.jl")
-include("cublas/CUBLAS.jl")
-include("cudnn/CUDNN.jl")
 
-using .CUDNN
-export CUDNN
+if Configured
+    include("cublas/CUBLAS.jl")
+    include("cudnn/CUDNN.jl")
+
+    using .CUDNN
+    export CUDNN
+end
 
 end

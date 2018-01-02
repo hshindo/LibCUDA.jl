@@ -5,7 +5,7 @@ if is_windows()
 else
     const libnvrtc = Libdl.find_library(["libnvrtc"])
 end
-isempty(libnvrtc) && warn("NVRTC library cannot be found.")
+isempty(libnvrtc) && throw("NVRTC library cannot be found.")
 
 macro apicall(f, args...)
     quote
