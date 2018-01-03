@@ -53,8 +53,6 @@ function CuPtr(bytesize::Int)
         else
             ptr = ref[]
         end
-        #@apicall :cuMemAlloc (Ptr{Ptr{Void}},Csize_t) ref bytesize
-        #ptr = ref[]
     else
         ptr = pop!(buffer)
     end

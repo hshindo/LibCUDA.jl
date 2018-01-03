@@ -21,13 +21,6 @@ end
 
 Base.unsafe_convert(::Type{Ptr{Void}}, desc::DropoutDesc) = desc.ptr
 
-struct Dropout
-    desc
-    xdesc
-    y
-    reservespace
-end
-
 function dropout(x::CuArray, droprate::Float64; seed=0)
     dropdesc = Dropout(droprate, seed)
     xdesc = TensorDesc(x, 4)
@@ -42,13 +35,12 @@ function dropout(x::CuArray, droprate::Float64; seed=0)
         Ptr{Void},Ptr{Void},Ptr{Void},Csize_t),
         handle(), dropdesc, xdesc, x, ydesc, y, reservespace, length(reservespace))
 
-    Dropout(dropdesc, xdesc, y, reservespace)
+    y, (dropdesc,xdesc,reservespace)
 end
 
-function ∇dropout!(d::Dropout, dy, dx)
-    h = handle()
+function ∇dropout!(dy, dx, dropdesc, xdesc, reservespace)
     @apicall(:cudnnDropoutBackward,
         (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},
         Ptr{Void},Ptr{Void},Ptr{Void},Csize_t),
-        h, d.desc, d.xdesc, dy, d.xdesc, dx, d.reservespace, length(d.reservespace))
+        handle(), dropdesc, xdesc, dy, xdesc, dx, reservespace, length(reservespace))
 end
