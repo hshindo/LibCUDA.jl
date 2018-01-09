@@ -1,15 +1,36 @@
+workspace()
 using LibCUDA
+using LibCUDA.CUDNN
 
 setdevice(0)
+x1 = curand(Float32,3,2)
+x2 = curand(Float32,3,1)
+println(x1)
+#println(x2)
+y = sum(x1, 2)
+println(y)
+throw("finished")
+stream0 = CuStream()
+setdevice(1)
+stream1 = CuStream()
+
+x = CuArray{Float32}(10,5)
+setdevice(0)
+fill!(x, 3, stream=stream1)
+
+
+throw("ok")
 function test()
     T = Float32
-    p = Var(Cint[1,2,3])
-    cup = Var(cu(p.data))
-    x = Var(randn(T,5,3))
-    cux = Var(cu(x.data))
-    y = softmax_crossentropy(p, x)
-    println(y)
-    cuy = softmax_crossentropy(cup, cux)
-    println(cuy)
+    mem = LibCUDA.MemoryBuffer()
+    for i = 1:10
+        for j = 1:10
+            x = CuArray{T}(100,10,mem=mem)
+            fill!(x, 1)
+            println(x)
+        end
+        LibCUDA.free!(mem)
+    end
+    LibCUDA.destroy!(mem)
 end
 test()

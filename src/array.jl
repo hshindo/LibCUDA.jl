@@ -11,12 +11,13 @@ const CuMatrix{T} = CuArray{T,2}
 const CuVecOrMat{T} = Union{CuVector{T},CuMatrix{T}}
 
 function CuArray{T}(dims::NTuple{N,Int}) where {T,N}
-    ptr = CuPtr(sizeof(T)*prod(dims))
+    ptr = alloc(getallocator(), sizeof(T)*prod(dims))
     CuArray{T,N}(ptr, dims)
 end
 CuArray{T}(dims::Int...) where T = CuArray{T}(dims)
-CuArray(x::Array{T,N}) where {T,N} = copy!(CuArray{T}(size(x)), x)
-cu(x::Array) = CuArray(x)
+CuArray{T}(ptr::CuPtr, dims::NTuple{N,Int}) where {T,N} = CuArray{T,N}(ptr, dims)
+CuArray(x::Array{T,N}; stream=C_NULL) where {T,N} = copy!(CuArray{T}(size(x)), x, stream=stream)
+cu(x::Array; stream=C_NULL) = CuArray(x, stream=stream)
 
 Base.length(x::CuArray) = prod(x.dims)
 Base.size(x::CuArray) = x.dims
@@ -46,15 +47,15 @@ Base.unsafe_convert(::Type{UInt64}, x::CuArray) = UInt64(x.ptr)
 
 Base.zeros(x::CuArray{T,N}) where {T,N} = zeros(CuArray{T}, x.dims)
 Base.zeros(::Type{CuArray{T}}, dims::Int...) where T = zeros(CuArray{T}, dims)
-Base.zeros(::Type{CuArray{T}}, dims::NTuple) where T = fill(CuArray, T(0), dims)
+Base.zeros(::Type{CuArray{T}}, dims::NTuple) where T = fill!(CuArray{T}(dims), 0)
 
 Base.ones(x::CuArray{T}) where T = ones(CuArray{T}, x.dims)
 Base.ones(::Type{CuArray{T}}, dims::Int...) where T  = ones(CuArray{T}, dims)
-Base.ones(::Type{CuArray{T}}, dims::NTuple) where T = fill(CuArray, T(1), dims)
+Base.ones(::Type{CuArray{T}}, dims::NTuple) where T = fill!(CuArray{T}(dims), 1)
 
-function Base.copy!(dest::Array{T}, src::CuArray{T}; stream=C_NULL) where T
+function Base.copy!(dest::Array{T}, src::CuArray{T}) where T
     nbytes = length(src) * sizeof(T)
-    @apicall :cuMemcpyDtoHAsync (Ptr{Void},Ptr{Void},Csize_t,Ptr{Void}) dest src nbytes stream
+    @apicall :cuMemcpyDtoH (Ptr{Void},Ptr{Void},Csize_t) dest src nbytes # async is slower?
     dest
 end
 function Base.copy!(dest::CuArray{T}, src::Array{T}; stream=C_NULL) where T
@@ -79,22 +80,8 @@ Base.copy(src::CuArray) = copy!(similar(src), src)
 Base.pointer(x::CuArray{T}, index::Int=1) where T = Ptr{T}(x) + sizeof(T)*(index-1)
 Base.Array(src::CuArray{T,N}) where {T,N} = copy!(Array{T}(size(src)), src)
 Base.isempty(x::CuArray) = length(x) == 0
-Base.vec(x::CuArray) = ndims(x) == 1 ? x : CuArray(x.ptr, (length(x),))
+Base.vec(x::CuArray{T}) where T = ndims(x) == 1 ? x : CuArray{T}(x.ptr, (length(x),))
 Base.fill(::Type{CuArray}, value::T, dims::NTuple) where T = fill!(CuArray{T}(dims), value)
-
-@generated function Base.fill!(x::CuArray{T}, value) where T
-    Ct = cstring(T)
-    f = CuFunction("""
-    __global__ void f($Ct *x, int length, $Ct value) {
-        int idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (idx < length) x[idx] = value;
-    }""")
-    quote
-        gdims, bdims = cudims(length(x))
-        culaunch($f, gdims, bdims, x.ptr, length(x), T(value))
-        x
-    end
-end
 
 Base.reshape{T,N}(a::CuArray{T}, dims::NTuple{N,Int}) = CuArray{T,N}(a.ptr, dims)
 Base.reshape{T}(a::CuArray{T}, dims::Int...) = reshape(a, dims)
@@ -148,7 +135,8 @@ end
 curandn(::Type{T}, dims::Int...) where T = curandn(T, dims)
 curandn(dims::Int...) = curandn(Float64, dims)
 
-getdevice(x::CuArray) = x.ptr.dev
+# TODO: device management
+getdevice(x::CuArray) = getdevice()
 
 #=
 function reshape3(x::CuArray, dim::Int)

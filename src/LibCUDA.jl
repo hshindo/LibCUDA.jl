@@ -29,12 +29,19 @@ macro apicall(f, args...)
     f = get(define, f.args[1], f.args[1])
     quote
         status = ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
-        if status != 0
-            Base.show_backtrace(STDOUT, backtrace())
+        if status != CUDA_SUCCESS
+            # Base.show_backtrace(STDOUT, backtrace())
             ref = Ref{Cstring}()
             ccall((:cuGetErrorString,libcuda), Cint, (Cint,Ptr{Cstring}), status, ref)
             throw(unsafe_string(ref[]))
         end
+    end
+end
+
+macro apicall_nocheck(f, args...)
+    f = get(define, f.args[1], f.args[1])
+    quote
+        ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
     end
 end
 
@@ -44,9 +51,10 @@ cstring(::Type{Float32}) = "float"
 cstring(::Type{Int}) = "int"
 
 include("device.jl")
-include("memory.jl")
-include("stream.jl")
 include("pointer.jl")
+include("stream.jl")
+include("memory.jl")
+include("allocators.jl")
 include("module.jl")
 include("function.jl")
 include("execution.jl")

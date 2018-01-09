@@ -10,8 +10,6 @@ function catindex(dim, I::NTuple{N}, shapes) where N
     x, ntuple(n -> n == dim ? i : I[n], Val{N})
 end
 
-catindex(1, (6,1), ((5,3),(2,3)))
-
 function _cat(dim, dest, xs...)
     function kernel(dim, dest, xs)
         I = @cuindex dest

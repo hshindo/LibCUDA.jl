@@ -1,26 +1,41 @@
+# cudnnReduceTensorOp_t
+const CUDNN_REDUCE_TENSOR_ADD = Cint(0)
+const CUDNN_REDUCE_TENSOR_MUL = Cint(1)
+const CUDNN_REDUCE_TENSOR_MIN = Cint(2)
+const CUDNN_REDUCE_TENSOR_MAX = Cint(3)
+const CUDNN_REDUCE_TENSOR_AMAX = Cint(4)
+const CUDNN_REDUCE_TENSOR_AVG = Cint(5)
+const CUDNN_REDUCE_TENSOR_NORM1 = Cint(6)
+const CUDNN_REDUCE_TENSOR_NORM2 = Cint(7)
+const CUDNN_REDUCE_TENSOR_MUL_NO_ZEROS = Cint(8)
+
+# cudnnReduceTensorIndices_t
+const CUDNN_REDUCE_TENSOR_NO_INDICES = Cint(0)
+const CUDNN_REDUCE_TENSOR_FLATTENED_INDICES = Cint(1)
+
 mutable struct ReduceTensorDesc
-    ptr::Ptr{Void}
+    ptr::Cptr
 end
 
 function ReduceTensorDesc(::Type{T}, op::Cint) where T
-    ref = Ref{Ptr{Void}}()
-    @apicall :cudnnCreateReduceTensorDescriptor (Ptr{Ptr{Void}},) ref
+    ref = Ref{Cptr}()
+    @apicall :cudnnCreateReduceTensorDescriptor (Ptr{Cptr},) ref
     desc = ReduceTensorDesc(ref[])
-    finalizer(desc, x -> @apicall :cudnnDestroyReduceTensorDescriptor (Ptr{Void},) x)
+    finalizer(desc, x -> @apicall :cudnnDestroyReduceTensorDescriptor (Cptr,) x)
 
     ind = op == CUDNN_REDUCE_TENSOR_MIN || op == CUDNN_REDUCE_TENSOR_MAX ?
         CUDNN_REDUCE_TENSOR_FLATTENED_INDICES :
         CUDNN_REDUCE_TENSOR_NO_INDICES
     @apicall(:cudnnSetReduceTensorDescriptor,
-        (Ptr{Void},Cint,Cint,Cint,Cint,Cint),
+        (Cptr,Cint,Cint,Cint,Cint,Cint),
         desc, op, datatype(T), CUDNN_NOT_PROPAGATE_NAN, ind, CUDNN.CUDNN_32BIT_INDICES)
     desc
 end
 
-Base.unsafe_convert(::Type{Ptr{Void}}, desc::ReduceTensorDesc) = desc.ptr
+Base.unsafe_convert(::Type{Cptr}, desc::ReduceTensorDesc) = desc.ptr
 
 function reduce(A::CuArray{T}, dim, op) where T
-    h = handle()
+    h = gethandle()
     reducedesc = ReduceTensorDesc(T, op)
     adesc = TensorDesc(A, 4)
     cdims = ntuple(ndims(A)) do i
@@ -31,36 +46,38 @@ function reduce(A::CuArray{T}, dim, op) where T
 
     ref = Ref{Csize_t}()
     @apicall(:cudnnGetReductionIndicesSize,
-        (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Csize_t}),
+        (Cptr,Cptr,Cptr,Cptr,Ptr{Csize_t}),
         h, reducedesc, adesc, cdesc, ref)
     indices = CuArray{Cint}(Int(ref[])÷sizeof(Cint))
 
     ref = Ref{Csize_t}()
     @apicall(:cudnnGetReductionWorkspaceSize,
-        (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Csize_t}),
+        (Cptr,Cptr,Cptr,Cptr,Ptr{Csize_t}),
         h, reducedesc, adesc, cdesc, ref)
     workspace = CuArray{UInt8}(Int(ref[]))
 
     @apicall(:cudnnReduceTensor,
-        (Ptr{Void},Ptr{Void},Ptr{Void},Csize_t,Ptr{Void},Csize_t,
-        Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void}),
+        (Cptr,Cptr,Cptr,Csize_t,Cptr,Csize_t,
+        Cptr,Cptr,Cptr,Cptr,Cptr,Cptr),
         h, reducedesc, indices, length(indices)*sizeof(Cint), workspace, length(workspace),
-        [T(1)], adesc, A, [T(0)], cdesc, C)
+        T[1], adesc, A, T[0], cdesc, C)
 
-    isempty(indices) ? C : (C,indices)
+    C, indices
 end
 
-Base.sum(x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_ADD)
-mul(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MUL)
+Base.sum(x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_ADD)[1]
+mul(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MUL)[1]
 Base.findmax(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MAX)
 Base.findmin(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MIN)
-Base.maximum(::typeof(abs), x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AMAX)
-Base.mean(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AVG)
+Base.maximum(::typeof(abs), x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AMAX)[1]
+Base.mean(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AVG)[1]
+argmax(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MAX)[2]
+argmin(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MIN)[2]
 function Base.norm(x::CuArray, dim::Int, p::Int)
     if p == 1
-        reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM1)
+        reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM1)[1]
     elseif p == 2
-        reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM2)
+        reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM2)[1]
     else
         throw("Not supported. Valid p: 1 or 2.")
     end

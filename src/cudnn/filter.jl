@@ -1,16 +1,21 @@
 mutable struct FilterDesc
-    ptr::Ptr{Void}
+    ptr::Cptr
+
+    function FilterDesc(::Type{T}, dims::NTuple{N,Int}) where {T,N}
+        ref = Ref{Cptr}()
+        @apicall :cudnnCreateFilterDescriptor (Ptr{Cptr},) ref
+        desc = new(ref[])
+        finalizer(desc, x -> @apicall :cudnnDestroyFilterDescriptor (Cptr,) x)
+
+        csize = Cint[reverse(dims)...]
+        @apicall(:cudnnSetFilterNdDescriptor,
+            (Cptr,Cint,Cint,Cint,Ptr{Cint}),
+            desc, datatype(T), CUDNN_TENSOR_NCHW, N, csize)
+        desc
+    end
 end
 
-function FilterDesc{T,N}(x::CuArray{T,N}; format=CUDNN_TENSOR_NCHW)
-    ref = Ref{Ptr{Void}}()
-    @apicall :cudnnCreateFilterDescriptor (Ptr{Ptr{Void}},) ref
-    desc = FilterDesc(ref[])
-    finalizer(desc, x -> @apicall :cudnnDestroyFilterDescriptor (Ptr{Void},) x)
+FilterDesc(::Type{T}, dims::Int...) where T = FilterDesc(T, dims)
+FilterDesc(x::CuArray) = FilterDesc(eltype(x), size(x))
 
-    csize = Cint[size(x,i) for i=N:-1:1]
-    @apicall :cudnnSetFilterNdDescriptor () desc datatype(T) format N csize
-    desc
-end
-
-Base.unsafe_convert(::Type{Ptr{Void}}, desc::FilterDesc) = desc.ptr
+Base.unsafe_convert(::Type{Cptr}, desc::FilterDesc) = desc.ptr

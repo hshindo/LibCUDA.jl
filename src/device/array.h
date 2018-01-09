@@ -38,7 +38,7 @@ public:
         for (int i = 0; i < N; i++) idx += idxs[i] * strides[i];
         return data[idx];
     }
-    __device__ void ind2sub(const int idx, int *subs) {
+    __device__ void ind2sub(int subs[N], int idx) {
         int cumdims[N];
         cumdims[0] = 1;
         for (int i = 1; i < N; i++) cumdims[i] = cumdims[i-1] * dims[i-1];

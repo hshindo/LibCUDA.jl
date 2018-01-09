@@ -1,37 +1,60 @@
-mutable struct ActivationDesc
-    ptr::Ptr{Void}
-end
-
-function ActivationDesc(mode, coef::Float64)
-    ref = Ref{Ptr{Void}}()
-    @apicall :cudnnCreateActivationDescriptor (Ptr{Ptr{Void}},) ref
-    desc = ActivationDesc(ref[])
-    finalizer(desc, x -> @apicall :cudnnDestroyActivationDescriptor (Ptr{Void},) x)
-
-    @apicall :cudnnSetActivationDescriptor (Ptr{Void},Cint,Cint,Cdouble) desc mode CUDNN_NOT_PROPAGATE_NAN coef
-    desc
-end
-
-Base.unsafe_convert(::Type{Ptr{Void}}, desc::ActivationDesc) = desc.ptr
+# cudnnActivationMode_t
+const CUDNN_ACTIVATION_SIGMOID = Cint(0)
+const CUDNN_ACTIVATION_RELU = Cint(1)
+const CUDNN_ACTIVATION_TANH = Cint(2)
+const CUDNN_ACTIVATION_CLIPPED_RELU = Cint(3)
+const CUDNN_ACTIVATION_ELU = Cint(4)
 
 """
+    ActivationDesc
+
 * coef: floating point number to specify the clipping threashold when the activation
 mode is set to CUDNN_ACTIVATION_CLIPPED_RELU or to specify the alpha coefficient
 when the activation mode is set to CUDNN_ACTIVATION_ELU
 """
-function activation(x::CuArray{T}, mode, coef=0.0) where T
+mutable struct ActivationDesc
+    ptr::Cptr
+
+    function ActivationDesc(mode::Cint, coef::Float64)
+        ref = Ref{Cptr}()
+        @apicall :cudnnCreateActivationDescriptor (Ptr{Cptr},) ref
+        desc = new(ref[])
+        finalizer(desc, destroy)
+
+        @apicall(:cudnnSetActivationDescriptor,
+            (Cptr,Cint,Cint,Cdouble),
+            desc, mode, CUDNN_NOT_PROPAGATE_NAN, coef)
+        desc
+    end
+end
+
+destroy(desc::ActivationDesc) = @apicall :cudnnDestroyActivationDescriptor (Cptr,) desc.ptr
+
+Base.unsafe_convert(::Type{Cptr}, desc::ActivationDesc) = desc.ptr
+
+function activation(x::CuArray{T}, mode::Cint, coef::Float64) where T
     actdesc = ActivationDesc(mode, coef)
     xdesc = TensorDesc(x, 4)
     y = similar(x)
     @apicall(:cudnnActivationForward,
-        (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void}),
-        handle(), actdesc, T[1], xdesc, x, T[0], xdesc, y)
-    y, (actdesc,xdesc)
+        (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr),
+        gethandle(), actdesc, T[1], xdesc, x, T[0], xdesc, y)
+    y
 end
 
-function ∇activation!(y::CuArray{T}, dy, x, dx, actdesc, xdesc) where T
+sigmoid(x::CuArray) = activation(x, CUDNN_ACTIVATION_SIGMOID, 0.0)
+relu(x::CuArray) = activation(x, CUDNN_ACTIVATION_RELU, 0.0)
+tanh(x::CuArray) = activation(x, CUDNN_ACTIVATION_TANH, 0.0)
+
+function ∇activation!(y::CuArray{T}, dy, x, dx, mode, coef) where T
+    actdesc = ActivationDesc(mode, coef)
+    xdesc = TensorDesc(x, 4)
     @apicall(:cudnnActivationBackward,
-        (Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},
-        Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void}),
-        handle(), actdesc, T[1], xdesc, y, xdesc, dy, xdesc, x, T[1], xdesc, dx)
+        (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,
+        Cptr,Cptr,Cptr,Cptr,Cptr),
+        gethandle(), actdesc, T[1], xdesc, y, xdesc, dy, xdesc, x, T[1], xdesc, dx)
 end
+
+∇sigmoid!(y, dy, x, dx) = ∇activation!(y, dy, x, dx, CUDNN_ACTIVATION_SIGMOID, 0.0)
+∇relu!(y, dy, x, dx) = ∇activation!(y, dy, x, dx, CUDNN_ACTIVATION_RELU, 0.0)
+∇tanh!(y, dy, x, dx) = ∇activation!(y, dy, x, dx, CUDNN_ACTIVATION_TANH, 0.0)
