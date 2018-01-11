@@ -21,7 +21,15 @@ end
 
 Base.unsafe_convert(::Type{Cptr}, desc::DropoutDesc) = desc.ptr
 
-function dropout(dropdesc::DropoutDesc, x::CuArray{T,N}) where {T,N}
+@generated function DropoutDesc(::Type{Val{droprate}}) where droprate
+    dropdesc = DropoutDesc(droprate)
+    quote
+        $dropdesc
+    end
+end
+
+function dropout(x::CuArray{T,N}, droprate::Float64) where {T,N}
+    dropdesc = DropoutDesc(Val{droprate})
     xdesc = TensorDesc(x, 4)
 
     ref = Ref{Csize_t}()
@@ -33,15 +41,17 @@ function dropout(dropdesc::DropoutDesc, x::CuArray{T,N}) where {T,N}
     @apicall(:cudnnDropoutForward,
         (Cptr,Cptr,Cptr,Cptr,
         Cptr,Cptr,Cptr,Csize_t),
-        h, dropdesc, xdesc, x, ydesc, y, reservespace, length(reservespace))
+        h, dropdesc, xdesc, x, xdesc, y, reservespace, length(reservespace))
 
-    y, (xdesc,reservespace)
+    y, reservespace
 end
 
-function backward!(dropdesc::DropoutDesc, dy, dx, xdesc, reservespace)
+function ∇dropout!(dy, dx, droprate, reservespace)
+    dropdesc = DropoutDesc(Val{droprate})
+    xdesc = TensorDesc(dy, 4)
     h = gethandle()
     @apicall(:cudnnDropoutBackward,
         (Cptr,Cptr,Cptr,Cptr,
         Cptr,Cptr,Cptr,Csize_t),
-        h, dropout.desc, xdesc, dy, xdesc, dx, reservespace, length(reservespace))
+        h, dropdesc, xdesc, dy, xdesc, dx, reservespace, length(reservespace))
 end

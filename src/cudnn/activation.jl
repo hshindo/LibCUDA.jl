@@ -17,18 +17,16 @@ mutable struct ActivationDesc
 
     function ActivationDesc(mode::Cint, coef::Float64)
         ref = Ref{Cptr}()
-        @apicall :cudnnCreateActivationDescriptor (Ptr{Cptr},) ref
+        @cudnn :cudnnCreateActivationDescriptor (Ptr{Cptr},) ref
         desc = new(ref[])
-        finalizer(desc, destroy)
+        finalizer(desc, x -> @cudnn :cudnnDestroyActivationDescriptor (Cptr,) x.ptr)
 
-        @apicall(:cudnnSetActivationDescriptor,
+        @cudnn(:cudnnSetActivationDescriptor,
             (Cptr,Cint,Cint,Cdouble),
             desc, mode, CUDNN_NOT_PROPAGATE_NAN, coef)
         desc
     end
 end
-
-destroy(desc::ActivationDesc) = @apicall :cudnnDestroyActivationDescriptor (Cptr,) desc.ptr
 
 Base.unsafe_convert(::Type{Cptr}, desc::ActivationDesc) = desc.ptr
 
@@ -36,7 +34,7 @@ function activation(x::CuArray{T}, mode::Cint, coef::Float64) where T
     actdesc = ActivationDesc(mode, coef)
     xdesc = TensorDesc(x, 4)
     y = similar(x)
-    @apicall(:cudnnActivationForward,
+    @cudnn(:cudnnActivationForward,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr),
         gethandle(), actdesc, T[1], xdesc, x, T[0], xdesc, y)
     y
@@ -49,7 +47,7 @@ tanh(x::CuArray) = activation(x, CUDNN_ACTIVATION_TANH, 0.0)
 function ∇activation!(y::CuArray{T}, dy, x, dx, mode, coef) where T
     actdesc = ActivationDesc(mode, coef)
     xdesc = TensorDesc(x, 4)
-    @apicall(:cudnnActivationBackward,
+    @cudnn(:cudnnActivationBackward,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,
         Cptr,Cptr,Cptr,Cptr,Cptr),
         gethandle(), actdesc, T[1], xdesc, y, xdesc, dy, xdesc, x, T[1], xdesc, dx)

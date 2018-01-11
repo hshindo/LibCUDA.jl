@@ -3,12 +3,12 @@ mutable struct FilterDesc
 
     function FilterDesc(::Type{T}, dims::NTuple{N,Int}) where {T,N}
         ref = Ref{Cptr}()
-        @apicall :cudnnCreateFilterDescriptor (Ptr{Cptr},) ref
+        @cudnn :cudnnCreateFilterDescriptor (Ptr{Cptr},) ref
         desc = new(ref[])
-        finalizer(desc, x -> @apicall :cudnnDestroyFilterDescriptor (Cptr,) x)
+        finalizer(desc, x -> @cudnn :cudnnDestroyFilterDescriptor (Cptr,) x.ptr)
 
         csize = Cint[reverse(dims)...]
-        @apicall(:cudnnSetFilterNdDescriptor,
+        @cudnn(:cudnnSetFilterNdDescriptor,
             (Cptr,Cint,Cint,Cint,Ptr{Cint}),
             desc, datatype(T), CUDNN_TENSOR_NCHW, N, csize)
         desc

@@ -1,4 +1,4 @@
-export cubox, culaunch
+export cubox, culaunch, cudims
 
 cubox(x) = x
 cubox(x::Int) = Cint(x)

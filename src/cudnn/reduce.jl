@@ -19,14 +19,14 @@ end
 
 function ReduceTensorDesc(::Type{T}, op::Cint) where T
     ref = Ref{Cptr}()
-    @apicall :cudnnCreateReduceTensorDescriptor (Ptr{Cptr},) ref
+    @cudnn :cudnnCreateReduceTensorDescriptor (Ptr{Cptr},) ref
     desc = ReduceTensorDesc(ref[])
-    finalizer(desc, x -> @apicall :cudnnDestroyReduceTensorDescriptor (Cptr,) x)
+    finalizer(desc, x -> @cudnn :cudnnDestroyReduceTensorDescriptor (Cptr,) x.ptr)
 
     ind = op == CUDNN_REDUCE_TENSOR_MIN || op == CUDNN_REDUCE_TENSOR_MAX ?
         CUDNN_REDUCE_TENSOR_FLATTENED_INDICES :
         CUDNN_REDUCE_TENSOR_NO_INDICES
-    @apicall(:cudnnSetReduceTensorDescriptor,
+    @cudnn(:cudnnSetReduceTensorDescriptor,
         (Cptr,Cint,Cint,Cint,Cint,Cint),
         desc, op, datatype(T), CUDNN_NOT_PROPAGATE_NAN, ind, CUDNN.CUDNN_32BIT_INDICES)
     desc
@@ -45,18 +45,18 @@ function reduce(A::CuArray{T}, dim, op) where T
     cdesc = TensorDesc(C, 4)
 
     ref = Ref{Csize_t}()
-    @apicall(:cudnnGetReductionIndicesSize,
+    @cudnn(:cudnnGetReductionIndicesSize,
         (Cptr,Cptr,Cptr,Cptr,Ptr{Csize_t}),
         h, reducedesc, adesc, cdesc, ref)
     indices = CuArray{Cint}(Int(ref[])÷sizeof(Cint))
 
     ref = Ref{Csize_t}()
-    @apicall(:cudnnGetReductionWorkspaceSize,
+    @cudnn(:cudnnGetReductionWorkspaceSize,
         (Cptr,Cptr,Cptr,Cptr,Ptr{Csize_t}),
         h, reducedesc, adesc, cdesc, ref)
     workspace = CuArray{UInt8}(Int(ref[]))
 
-    @apicall(:cudnnReduceTensor,
+    @cudnn(:cudnnReduceTensor,
         (Cptr,Cptr,Cptr,Csize_t,Cptr,Csize_t,
         Cptr,Cptr,Cptr,Cptr,Cptr,Cptr),
         h, reducedesc, indices, length(indices)*sizeof(Cint), workspace, length(workspace),

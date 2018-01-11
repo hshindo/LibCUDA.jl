@@ -2,7 +2,6 @@ template<typename T, int N>
 struct Array {
     T *data;
     const int dims[N];
-    const int strides[N];
 public:
     __device__ int length() {
         int n = dims[0];
@@ -10,56 +9,40 @@ public:
         return n;
     }
     __device__ T &operator[](int idx) { return data[idx]; }
-    __device__ T &operator()(int i0) {
-        return data[i0];
-
-        if (N == 1) return data[i0*strides[0]];
-
-        int cumdims[N];
-        cumdims[0] = 1;
-        for (int i = 1; i < N; i++) cumdims[i] = cumdims[i-1] * dims[i-1];
-
-        int temp = i0;
-        for (int i = N-1; i >= 0; i--) {
-            int a = temp / cumdims[i];
-            temp -= a * cumdims[i];
-            cumdims[i] = a;
-        }
-        return (*this)(cumdims);
-    }
-    __device__ T &operator()(int i0, int i1) {
-        return data[i0*strides[0] + i1*strides[1]];
-    }
-    __device__ T &operator()(int i0, int i1, int i2) {
-        return data[i0*strides[0] + i1*strides[1] + i2*strides[2]];
-    }
-    __device__ T &operator()(int idxs[]) {
-        int idx = 0;
-        for (int i = 0; i < N; i++) idx += idxs[i] * strides[i];
+    __device__ T &operator()(int idx0, int idx1) {
+        int idx = idx0 + idx1*dims[0];
         return data[idx];
     }
-    __device__ void ind2sub(int subs[N], int idx) {
+    __device__ T &operator()(int idx0, int idx1, int idx2) {
+        int idx = idx0 + idx1*dims[0] + idx2*dims[0]*dims[1];
+        return data[idx];
+    }
+    __device__ T &operator()(int idx0, int idx1, int idx2, int idx3) {
+        int idx = idx0 + idx1*dims[0] + idx2*dims[0]*dims[1] + idx3*dims[0]*dims[1]*dims[2];
+        return data[idx];
+    }
+    __device__ void idx2ndIdx(int ndIdx[N], int idx) {
         int cumdims[N];
         cumdims[0] = 1;
         for (int i = 1; i < N; i++) cumdims[i] = cumdims[i-1] * dims[i-1];
         int temp = idx;
         for (int i = N-1; i >= 1; i--) {
             int k = temp / cumdims[i];
-            subs[i] = k;
+            ndIdx[i] = k;
             temp -= k * cumdims[i];
         }
-        subs[0] = temp;
+        ndIdx[0] = temp;
         return;
     }
-    //__device__ T& operator()(int *subs) {
-    //    int idx = 0;
-    //    int stride = 1;
-    //    for (int i = 0; i < N; i++) {
-    //        if (dims[i] > 1) idx += subs[i] * stride;
-    //        stride *= dims[i];
-    //    }
-    //    return data[idx];
-    //}
+    __device__ T& operator()(int ndIdx[N]) {
+        int idx = 0;
+        int stride = 1;
+        for (int d = 0; d < N; d++) {
+            if (dims[d] > 1) idx += ndIdx[d] * stride;
+            stride *= dims[d];
+        }
+        return data[idx];
+    }
 };
 
 template<int N>

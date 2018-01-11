@@ -1,14 +1,20 @@
 workspace()
 using LibCUDA
-using LibCUDA.CUDNN
+# using LibCUDA.CUDNN
 
 setdevice(0)
-x1 = curand(Float32,3,2)
-x2 = curand(Float32,3,1)
+x1 = curandn(Float32,4,5)
+LibCUDA.relu(x1)
+x2 = curand(Float32,3,5)
+# y = concat(1, x1, x2)
 println(x1)
-#println(x2)
-y = sum(x1, 2)
+y,rx = CUDNN.dropout(x1, 0.5)
 println(y)
+y,rx = CUDNN.dropout(x1, 0.5)
+println(y)
+#println(x2)
+
+#println(y)
 throw("finished")
 stream0 = CuStream()
 setdevice(1)

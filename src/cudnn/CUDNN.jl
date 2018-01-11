@@ -12,7 +12,7 @@ isempty(libcudnn) && throw("CUDNN library cannot be found.")
 const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
 info("CUDNN API $API_VERSION")
 
-macro apicall(f, args...)
+macro cudnn(f, args...)
     quote
         status = ccall(($f,libcudnn), Cint, $(map(esc,args)...))
         if status != 0
@@ -50,10 +50,10 @@ function gethandle()
     h = Handles[dev+1]
     if h == Ptr{Void}(0)
         ref = Ref{Ptr{Void}}()
-        @apicall :cudnnCreate (Ptr{Ptr{Void}},) ref
+        @cudnn :cudnnCreate (Ptr{Ptr{Void}},) ref
         h = ref[]
         Handles[dev+1] = h
-        atexit(() -> @apicall :cudnnDestroy (Ptr{Void},) h)
+        atexit(() -> @cudnn :cudnnDestroy (Ptr{Void},) h)
     end
     h
 end
@@ -61,9 +61,9 @@ end
 include("activation.jl")
 include("convolution.jl")
 include("filter.jl")
-include("dropout.jl")
+#include("dropout.jl")
 include("reduce.jl")
-include("rnn.jl")
+#include("rnn.jl")
 include("softmax.jl")
 include("tensor.jl")
 
@@ -77,7 +77,7 @@ function add!(α, A::CuArray{T}, β, C::CuArray{T}) where T
     h = gethandle()
     adesc = TensorDesc(A, 4)
     cdesc = TensorDesc(C, 4)
-    @apicall(:cudnnAddTensor,
+    @cudnn(:cudnnAddTensor,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr),
         h, T[α], adesc, A, T[β], cdesc, C)
     C

@@ -52,15 +52,15 @@ mutable struct ConvolutionDesc
 
     function ConvolutionDesc(::Type{T}, N::Int, pads, strides, dilations) where T
         ref = Ref{Cptr}()
-        @apicall :cudnnCreateConvolutionDescriptor (Ptr{Cptr},) ref
+        @cudnn :cudnnCreateConvolutionDescriptor (Ptr{Cptr},) ref
         desc = new(ref[])
-        finalizer(desc, x -> @apicall :cudnnDestroyConvolutionDescriptor (Cptr,) x)
+        finalizer(desc, x -> @cudnn :cudnnDestroyConvolutionDescriptor (Cptr,) x.ptr)
 
         cpads = Cint[pads[i] for i=N:-1:1]
         cstrides = Cint[strides[i] for i=N:-1:1]
         cdilations = Cint[dilations[i] for i=N:-1:1]
         mode = CUDNN_CROSS_CORRELATION
-        @apicall(:cudnnSetConvolutionNdDescriptor,
+        @cudnn(:cudnnSetConvolutionNdDescriptor,
             (Cptr,Cint,Ptr{Cint},Ptr{Cint},Ptr{Cint},Cint,Cint),
             desc, N, cpads, cstrides, cdilations, mode, datatype(T))
         desc
@@ -87,35 +87,35 @@ function convolution(w::CuArray{T,N}, x::CuArray{T,N}, pads, strides, dilations)
     h = gethandle()
     ref = Ref{Cint}()
     preference = CUDNN_CONVOLUTION_FWD_PREFER_FASTEST
-    @apicall(:cudnnGetConvolutionForwardAlgorithm,
+    @cudnn(:cudnnGetConvolutionForwardAlgorithm,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Csize_t,Ptr{Cint}),
         h, xdesc, wdesc, convdesc, ydesc, preference, 0, ref)
     algo = ref[]
 
     ref = Ref{Csize_t}()
-    @apicall(:cudnnGetConvolutionForwardWorkspaceSize,
+    @cudnn(:cudnnGetConvolutionForwardWorkspaceSize,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Csize_t}),
         h, xdesc, wdesc, convdesc, ydesc, algo, ref)
     workspace = CuArray{UInt8}(Int(ref[]))
 
-    @apicall(:cudnnConvolutionForward,
+    @cudnn(:cudnnConvolutionForward,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Cptr,Csize_t,Cptr,Cptr,Cptr),
         h, T[1], xdesc, x, wdesc, w, convdesc, algo, workspace, length(workspace), T[0], ydesc, y)
     y
 end
 
-function ∇convolution!(w::CuArray{T,N}, dw, x, dx, dy, pads, strides, dilations) where {T,N}
+function ∇convolution!(dy::CuArray{T,N}, w, dw, x, dx, pads, strides, dilations) where {T,N}
     convdesc = ConvolutionDesc(T, N-2, pads, strides, dilations)
+    dydesc = TensorDesc(dy)
     wdesc = TensorDesc(w)
     xdesc = TensorDesc(x)
-    dydesc = TensorDesc(dy)
     dw == nothing || backward_filter!(convdesc, xdesc, x, dydesc, dy, wdesc, dw)
     dx == nothing || backward_data!(convdesc, wdesc, w, dydesc, dy, xdesc, dx)
 end
 
 function backward_bias!(dydesc, dy, dbdesc, db)
     T = eltype(dy)
-    @apicall(:cudnnConvolutionBackwardBias,
+    @cudnn(:cudnnConvolutionBackwardBias,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr),
         h, T[1], dydesc, dy, T[1], dbdesc, db)
 end
@@ -124,19 +124,20 @@ function backward_filter!(convdesc::ConvolutionDesc, xdesc, x, dydesc, dy, dwdes
     T = eltype(x)
     h = gethandle()
     ref = Ref{Cint}()
-    preference = CUDNN_CONVOLUTION_FWD_PREFER_FASTEST
-    @apicall(:cudnnGetConvolutionBackwardFilterAlgorithm,
+    preference = CUDNN_CONVOLUTION_BWD_FILTER_PREFER_FASTEST
+    @cudnn(:cudnnGetConvolutionBackwardFilterAlgorithm,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Csize_t,Ptr{Cint}),
         h, xdesc, dydesc, convdesc, dwdesc, preference, 0, ref)
     algo = ref[]
+    println(algo)
 
     ref = Ref{Csize_t}()
-    @apicall(:cudnnGetConvolutionBackwardFilterWorkspaceSize,
+    @cudnn(:cudnnGetConvolutionBackwardFilterWorkspaceSize,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Csize_t}),
         h, xdesc, dydesc, convdesc, dwdesc, algo, ref)
     workspace = CuArray{UInt8}(Int(ref[]))
 
-    @apicall(:cudnnConvolutionBackwardFilter,
+    @cudnn(:cudnnConvolutionBackwardFilter,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Cptr,Csize_t,Cptr,Cptr,Cptr),
         h, T[1], xdesc, x, dydesc, dy, convdesc, algo, workspace, length(workspace), T[1], dwdesc, dw)
 end
@@ -145,19 +146,19 @@ function backward_data!(convdesc::ConvolutionDesc, wdesc, w, dydesc, dy, dxdesc,
     T = eltype(w)
     h = gethandle()
     ref = Ref{Cint}()
-    preference = CUDNN_CONVOLUTION_FWD_PREFER_FASTEST
-    @apicall(:cudnnGetConvolutionBackwardDataAlgorithm,
+    preference = CUDNN_CONVOLUTION_BWD_DATA_PREFER_FASTEST
+    @cudnn(:cudnnGetConvolutionBackwardDataAlgorithm,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Csize_t,Ptr{Cint}),
         h, wdesc, dydesc, convdesc, dxdesc, preference, 0, ref)
     algo = ref[]
 
     ref = Ref{Csize_t}()
-    @apicall(:cudnnGetConvolutionBackwardDataWorkspaceSize,
+    @cudnn(:cudnnGetConvolutionBackwardDataWorkspaceSize,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Ptr{Csize_t}),
         h, wdesc, dydesc, convdesc, dxdesc, algo, ref)
     workspace = CuArray{UInt8}(Int(ref[]))
 
-    @apicall(:cudnnConvolutionBackwardData,
+    @cudnn(:cudnnConvolutionBackwardData,
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Cptr,Csize_t,Cptr,Cptr,Cptr),
         h, T[1], wdesc, w, dydesc, dy, convdesc, algo, workspace, length(workspace), T[1], dxdesc, dx)
 end

@@ -66,6 +66,7 @@ include("arraymath.jl")
 include("devicearray.jl")
 
 if Configured
+    setdevice(0)
     include("cublas/CUBLAS.jl")
     include("cudnn/CUDNN.jl")
 
