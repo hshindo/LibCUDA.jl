@@ -107,7 +107,7 @@ end
 function ∇convolution!(dy::CuArray{T,N}, w, dw, x, dx, pads, strides, dilations) where {T,N}
     convdesc = ConvolutionDesc(T, N-2, pads, strides, dilations)
     dydesc = TensorDesc(dy)
-    wdesc = TensorDesc(w)
+    wdesc = FilterDesc(w)
     xdesc = TensorDesc(x)
     dw == nothing || backward_filter!(convdesc, xdesc, x, dydesc, dy, wdesc, dw)
     dx == nothing || backward_data!(convdesc, wdesc, w, dydesc, dy, xdesc, dx)
@@ -129,7 +129,6 @@ function backward_filter!(convdesc::ConvolutionDesc, xdesc, x, dydesc, dy, dwdes
         (Cptr,Cptr,Cptr,Cptr,Cptr,Cint,Csize_t,Ptr{Cint}),
         h, xdesc, dydesc, convdesc, dwdesc, preference, 0, ref)
     algo = ref[]
-    println(algo)
 
     ref = Ref{Csize_t}()
     @cudnn(:cudnnGetConvolutionBackwardFilterWorkspaceSize,

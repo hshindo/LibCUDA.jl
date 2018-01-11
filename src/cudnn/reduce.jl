@@ -15,21 +15,21 @@ const CUDNN_REDUCE_TENSOR_FLATTENED_INDICES = Cint(1)
 
 mutable struct ReduceTensorDesc
     ptr::Cptr
-end
 
-function ReduceTensorDesc(::Type{T}, op::Cint) where T
-    ref = Ref{Cptr}()
-    @cudnn :cudnnCreateReduceTensorDescriptor (Ptr{Cptr},) ref
-    desc = ReduceTensorDesc(ref[])
-    finalizer(desc, x -> @cudnn :cudnnDestroyReduceTensorDescriptor (Cptr,) x.ptr)
+    function ReduceTensorDesc(::Type{T}, op::Cint) where T
+        ref = Ref{Cptr}()
+        @cudnn :cudnnCreateReduceTensorDescriptor (Ptr{Cptr},) ref
+        desc = new(ref[])
+        finalizer(desc, x -> @cudnn :cudnnDestroyReduceTensorDescriptor (Cptr,) x.ptr)
 
-    ind = op == CUDNN_REDUCE_TENSOR_MIN || op == CUDNN_REDUCE_TENSOR_MAX ?
-        CUDNN_REDUCE_TENSOR_FLATTENED_INDICES :
-        CUDNN_REDUCE_TENSOR_NO_INDICES
-    @cudnn(:cudnnSetReduceTensorDescriptor,
-        (Cptr,Cint,Cint,Cint,Cint,Cint),
-        desc, op, datatype(T), CUDNN_NOT_PROPAGATE_NAN, ind, CUDNN.CUDNN_32BIT_INDICES)
-    desc
+        ind = op == CUDNN_REDUCE_TENSOR_MIN || op == CUDNN_REDUCE_TENSOR_MAX ?
+            CUDNN_REDUCE_TENSOR_FLATTENED_INDICES :
+            CUDNN_REDUCE_TENSOR_NO_INDICES
+        @cudnn(:cudnnSetReduceTensorDescriptor,
+            (Cptr,Cint,Cint,Cint,Cint,Cint),
+            desc, op, datatype(T), CUDNN_NOT_PROPAGATE_NAN, ind, CUDNN.CUDNN_32BIT_INDICES)
+        desc
+    end
 end
 
 Base.unsafe_convert(::Type{Cptr}, desc::ReduceTensorDesc) = desc.ptr
@@ -71,8 +71,7 @@ Base.findmax(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MAX)
 Base.findmin(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MIN)
 Base.maximum(::typeof(abs), x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AMAX)[1]
 Base.mean(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AVG)[1]
-argmax(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MAX)[2]
-argmin(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MIN)[2]
+
 function Base.norm(x::CuArray, dim::Int, p::Int)
     if p == 1
         reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM1)[1]

@@ -47,8 +47,8 @@ end
 
 CurrentDevice = -1
 
+export cstring
 cstring(::Type{Float32}) = "float"
-cstring(::Type{Int}) = "int"
 
 include("device.jl")
 include("pointer.jl")
