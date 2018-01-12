@@ -20,15 +20,16 @@ const CUDNN_RNN_ALGO_PERSIST_DYNAMIC = Cint(2)
 mutable struct RNNDesc
     ptr::Cptr
 
-    function RNNDesc(::Type{T}, hsize::Int, nlayers::Int, droprate::Float64, direction, mode, algo) where T
+    function RNNDesc(::Type{T}, hsize::Int, nlayers::Int, droprate::Float64, direction, mode) where T
         ref = Ref{Cptr}()
-        @apicall :cudnnCreateRNNDescriptor (Ptr{Cptr},) ref
+        @cudnn :cudnnCreateRNNDescriptor (Ptr{Cptr},) ref
         desc = new(ref[])
-        finalizer(desc, x -> @apicall :cudnnDestroyRNNDescriptor (Cptr,) x)
+        finalizer(desc, x -> @cudnn :cudnnDestroyRNNDescriptor (Cptr,) x.ptr)
 
         h = gethandle()
         dropdesc = DropoutDesc(droprate)
-        @apicall(:cudnnSetRNNDescriptor,
+        algo = CUDNN_RNN_ALGO_STANDARD
+        @cudnn(:cudnnSetRNNDescriptor,
             (Cptr,Cptr,Cint,Cint,Cptr,Cint,Cint,Cint,Cint,Cint),
             h, desc, hsize, nlayers, dropdesc, CUDNN_LINEAR_INPUT, direction, mode, algo, datatype(T))
         desc
@@ -49,56 +50,45 @@ Base.unsafe_convert(::Type{Cptr}, desc::RNNDesc) = desc.ptr
 #
 # Note: cudnn docs say min tensor dims 4 but RNN_example.cu uses 3D tensors
 
-mutable struct RNN
-    desc::RNNDesc
-    hsize::Int
-    nlayers::Int
-    direction::Cint
-    wdesc
-    w
-end
+function rnn(hsize::Int, nlayers::Int, droprate::Float64, direction::Cint, mode::Cint,
+    w::CuVector{T}, x::CuMatrix{T}, batchdims::Vector{Int}; inference=true) where T
 
-doc"""
-    RNN
-
-```julia
-rnn = RNN(T, 10, 1, 0.5, CUDNN_UNIDIRECTIONAL, CUDNN_LSTM, CUDNN_RNN_ALGO_STANDARD)
-```
-"""
-function RNN(hsize::Int, nlayers::Int, droprate::Float64, direction::Cint, mode::Cint, algo::Cint, w::CuVector{T}) where T
-    rnndesc = RNNDesc(T, hsize, nlayers, droprate, direction, mode, algo)
+    @assert issorted(batchdims, rev=true)
+    rnndesc = RNNDesc(T, hsize, nlayers, droprate, direction, mode)
     wdesc = FilterDesc(T, 1, 1, length(w))
-    RNN(rnndesc, hsize, nlayers, direction, wdesc, w)
-end
 
-function (rnn::RNN)(xs::Vector{CuMatrix{T}}, inference=true) where T
     # x: (1,X,B,T) where X = inputSize, B = miniBatch, T = seqLength
     # xDesc: Array of T (1,X,B) descriptors
-    xdesc = map(xs) do x
-        TensorDesc(T, 1, size(x)...)
+    xdesc = map(batchdims) do d
+        TensorDesc(T, 1, size(x,1), d)
     end
-    x = catvec(xs)
 
     # hx,cx,hy,cy: (H,B,L) where H = hidden size, L = numLayers * (bidirectional ? 2 : 1)
-    coef = rnn.direction == CUDNN_UNIDIRECTIONAL ? 1 : 2
-    hxdesc = TensorDesc(T, rnn.hsize, size(xs[1],2), rnn.nlayers*coef)
+    coef = direction == CUDNN_UNIDIRECTIONAL ? 1 : 2
+    hxdesc = TensorDesc(T, hsize, batchdims[1], nlayers*coef)
+    hx = CuArray{T}(hsize, batchdims[1])
+    fill!(hx, 1)
+    hy = similar(hx)
+    cx = CuArray{T}(hsize, batchdims[1])
+    fill!(cx, 1)
+    cy = similar(hx)
 
     # y: (1,Y,B,T) where Y = hiddenSize * (bidirectional ? 2 : 1)
     # yDesc: Array of T (1,Y,B) descriptors
-    y = CuArray{T}(rnn.hsize*coef, sum(x -> size(x,2),xs))
-    ydesc = map(xs) do x
-        TensorDesc(T, 1, rnn.hsize*coef, size(x,2))
+    y = CuArray{T}(hsize*coef, size(x,2))
+    ydesc = map(batchdims) do d
+        TensorDesc(T, 1, hsize*coef, d)
     end
 
     h = gethandle()
     ref = Ref{Csize_t}()
-    @apicall(:cudnnGetRNNWorkspaceSize,
+    @cudnn(:cudnnGetRNNWorkspaceSize,
         (Cptr,Cptr,Cint,Ptr{Cptr},Ptr{Csize_t}),
-        h, rnn.desc, length(xdesc), xdesc, ref)
+        h, rnndesc, length(xdesc), xdesc, ref)
     workspace = CuArray{UInt8}(Int(ref[]))
 
     if inference
-        @apicall(:cudnnRNNForwardInference,
+        @cudnn(:cudnnRNNForwardInference,
             (Cptr,Cptr,Cint,
             Ptr{Cptr},Cptr,     # x
             Cptr,Cptr,          # hx
@@ -108,23 +98,23 @@ function (rnn::RNN)(xs::Vector{CuMatrix{T}}, inference=true) where T
             Cptr,Cptr,          # hy
             Cptr,Cptr,          # cy
             Cptr,Csize_t),      # workspace
-            h, rnn.desc, length(xdesc),
+            h, rnndesc, length(xdesc),
             xdesc, x,
-            hxdesc, C_NULL,
-            hxdesc, C_NULL,
-            rnn.wdesc, rnn.w,
+            hxdesc, hx,
+            hxdesc, cx,
+            wdesc, w,
             ydesc, y,
-            hxdesc, C_NULL,
-            hxdesc, C_NULL,
+            hxdesc, hy,
+            hxdesc, cy,
             workspace, length(workspace))
     else
         ref = Ref{Csize_t}()
-        @apicall(:cudnnGetRNNTrainingReserveSize,
+        @cudnn(:cudnnGetRNNTrainingReserveSize,
             (Cptr,Cptr,Cint,Ptr{Cptr},Ptr{Csize_t}),
-            h, rnn.desc, length(xdesc), xdesc, ref)
+            h, rnndesc, length(xdesc), xdesc, ref)
         reservespace = CuArray{UInt8}(Int(ref[]))
 
-        @apicall(:cudnnRNNForwardTraining,
+        @cudnn(:cudnnRNNForwardTraining,
             (Cptr,Cptr,Cint,
             Ptr{Cptr},Cptr,     # x
             Cptr,Cptr,          # hx
@@ -135,13 +125,13 @@ function (rnn::RNN)(xs::Vector{CuMatrix{T}}, inference=true) where T
             Cptr,Cptr,          # cy
             Cptr,Csize_t,       # workspace
             Cptr,Csize_t),      # reservespace
-            h, rnn.desc, length(xdesc),
+            h, rnndesc, length(xdesc),
             xdesc, x,
+            hxdesc, hx,
             hxdesc, C_NULL,
-            hxdesc, C_NULL,
-            rnn.wdesc, rnn.w,
+            wdesc, w,
             ydesc, y,
-            hxdesc, C_NULL,
+            hxdesc, hy,
             hxdesc, C_NULL,
             workspace, length(workspace),
             reservespace, length(workspace))
@@ -149,25 +139,17 @@ function (rnn::RNN)(xs::Vector{CuMatrix{T}}, inference=true) where T
     y
 end
 
+function lstm(hsize, nlayers, droprate, w::CuArray, x::CuArray, batchdims::Vector{Int})
+    rnn(hsize, nlayers, droprate, CUDNN_UNIDIRECTIONAL, CUDNN_LSTM, w, x, batchdims)
+end
+
 function getRNNParamSize(::Type{T}, desc, xdesc) where T
     h = gethandle()
     ref = Ref{Csize_t}()
-    @apicall(:cudnnGetRNNParamsSize,
+    @cudnn(:cudnnGetRNNParamsSize,
         (Cptr,Cptr,Cptr,Ptr{Csize_t},Cint),
         h, desc, xdesc, ref, datatype(T))
     println(Int(ref[]) ÷ sizeof(T))
-end
-
-function catvec(arrays::Vector{A}) where A<:CuArray
-    T = eltype(arrays[1])
-    n = sum(length, arrays)
-    dest = CuArray{T}(n)
-    offset = 1
-    for x in arrays
-        copy!(dest, offset, x, 1, length(x))
-        offset += length(x)
-    end
-    dest
 end
 
 function test_rnn()

@@ -63,7 +63,7 @@ include("convolution.jl")
 include("filter.jl")
 include("dropout.jl")
 include("reduce.jl")
-#include("rnn.jl")
+include("rnn.jl")
 include("softmax.jl")
 include("tensor.jl")
 
