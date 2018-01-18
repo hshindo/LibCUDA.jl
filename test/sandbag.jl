@@ -1,42 +1,38 @@
 workspace()
 using LibCUDA
-# using LibCUDA.CUDNN
 
-setdevice(0)
-x1 = curandn(Float32,4,5)
-LibCUDA.relu(x1)
-x2 = curand(Float32,3,5)
-# y = concat(1, x1, x2)
-println(x1)
-y,rx = CUDNN.dropout(x1, 0.5)
-println(y)
-y,rx = CUDNN.dropout(x1, 0.5)
-println(y)
-#println(x2)
+LibCUDA.testcu()
 
-#println(y)
-throw("finished")
-stream0 = CuStream()
-setdevice(1)
-stream1 = CuStream()
+T = Float32
+x = curandn(T, 5, 9)
+CUDNN.batch_rnn(x, [4,3,2])
+y = CUDNN.catvec(xs)
+display(y)
+throw("finish")
+#=
+T = Float32
+xs = [curandn(T,5,4) for i=1:2]
+display(xs[1])
+println()
+display(xs[2])
+println()
+#display(xs[3])
+#println()
+y = cat(2, xs...)
+display(y)
+throw("finish")
+=#
 
-x = CuArray{Float32}(10,5)
-setdevice(0)
-fill!(x, 3, stream=stream1)
-
-
-throw("ok")
-function test()
+function bench()
     T = Float32
-    mem = LibCUDA.MemoryBuffer()
-    for i = 1:10
-        for j = 1:10
-            x = CuArray{T}(100,10,mem=mem)
-            fill!(x, 1)
-            println(x)
+    y = CuArray{T}(50, 50, 50)
+    x = CuArray{T}(50, 50, 50)
+    #suby = view(y, 10:59, 10:59, 10:59)
+    @time begin
+        for i = 1:20
+            cat(1, x, y)
         end
-        LibCUDA.free!(mem)
+        synchronize()
     end
-    LibCUDA.destroy!(mem)
 end
-test()
+# bench()

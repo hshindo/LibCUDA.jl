@@ -60,9 +60,11 @@ include("function.jl")
 include("execution.jl")
 Configured && include("NVRTC.jl")
 
+include("abstractarray.jl")
 include("array.jl")
 include("arraymath.jl")
-# include("cat.jl")
+include("subarray.jl")
+include("cat.jl")
 include("devicearray.jl")
 
 if Configured

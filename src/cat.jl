@@ -1,56 +1,92 @@
+@generated function concat!(y::CuArray{T,N}, dim::Int, x1::CuArray{T,N}, x2::CuArray{T,N}) where {T,N}
+    Ct = cstring(T)
+    f = CuFunction("""
+    $Array_h
+    __global__ void concat(Array<$Ct,$N> y, int dim, $Ct *x1, int sizeX1, $Ct *x2, int sizeX2) {
+        int idxY = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idxY >= y.length()) return;
 
+        int ndIdx[$N];
+        y.idx2ndIdx(ndIdx, idxY);
+        $Ct *x;
+        int sizeX;
+        if (ndIdx[dim] < sizeX1) {
+            x = x1;
+            sizeX = sizeX1;
+        }
+        else {
+            x = x2;
+            sizeX = sizeX2;
+            ndIdx[dim] -= sizeX1;
+        }
 
-@generated function nindex(i::Int, ls::NTuple{N}) where N
+        int idxX = 0;
+        int strideX = 1;
+        for (int d = 0; d < $N; d++) {
+            idxX += ndIdx[d] * strideX;
+            if (d == dim) strideX *= sizeX;
+            else strideX *= y.dims[d];
+        }
+        y[idxY] = x[idxX];
+    }""")
     quote
-        Base.@_inline_meta
-        $(foldr((n, els) -> :(i ≤ ls[$n] ? ($n, i) : (i -= ls[$n]; $els)), :(-1, -1), 1:N))
+        gdims, bdims = cudims(length(y))
+        culaunch($f, gdims, bdims, y, dim-1, x1.ptr, size(x1,dim), x2.ptr, size(x2,dim))
+        y
     end
 end
 
-function catindex(dim, I::NTuple{N}, shapes) where N
-    @inbounds x, i = nindex(I[dim], getindex.(shapes, dim))
-    x, ntuple(n -> n == dim ? i : I[n], Val{N})
+function cubox_cat(xs::Vector{CuArray{T,N}}) where {T,N}
+    x = map(x -> x.ptr.dptr, xs)
+    y = CuArray{UInt64}(length(xs))
+    copy!(y, x)
 end
 
-function _cat(dim, dest, xs...)
-    function kernel(dim, dest, xs)
-        I = @cuindex dest
-        n, I′ = catindex(dim, I, size.(xs))
-        @inbounds dest[I...] = xs[n][I′...]
-        return
-    end
-    println("_cat reached.")
-    #blk, thr = cudims(dest)
-    #@cuda (blk, thr) kernel(dim, dest, xs)
-    dest
-end
+@generated function concat_binarysearch!(y::CuArray{T,N}, dim::Int, xs::Vector{CuArray{T,N}}) where {T,N}
+    Ct = cstring(T)
+    f = CuFunction("""
+    $Array_h
 
-function Base.cat_t(dims::Int, T::Type, x::CuArray, xs::CuArray...)
-    catdims = Base.dims2cat(dims)
-    shape = Base.cat_shape(catdims, (), size.((x, xs...))...)
-    dest = Base.cat_similar(x, T, shape)
-    _cat(dims, dest, x, xs...)
-end
+    __global__ void concat(Array<$Ct,$N> y, int dim, $Ct** xs, int lengthXs, int *cumdims) {
+        int idxY = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idxY >= y.length()) return;
 
-Base.vcat(xs::CuArray...) = cat(1, xs...)
-Base.hcat(xs::CuArray...) = cat(2, xs...)
+        int ndIdx[$N];
+        y.idx2ndIdx(ndIdx, idxY);
 
-macro cuindex(A)
+        int left = 0;
+        int right = lengthXs;
+        while (left < right - 1) {
+            int m = (left + right) / 2;
+            if (ndIdx[dim] < cumdims[m]) right = m;
+            else left = m;
+        }
+
+        int xsIdx = left;
+        ndIdx[dim] -= cumdims[xsIdx];
+
+        // get element of x
+        int idxX = 0;
+        int strideX = 1;
+        for (int d = 0; d < $N; d++) {
+            idxX += ndIdx[d] * strideX;
+            if (d == dim) strideX *= cumdims[xsIdx+1] - cumdims[xsIdx];
+            else strideX *= y.dims[d];
+        }
+        y[idxY] = xs[xsIdx][idxX];
+    }""")
     quote
-        A = $(esc(A))
-        i = (blockIdx().x-UInt32(1)) * blockDim().x + threadIdx().x
-        i > length(A) && return
-        ind2sub(A, i)
-    end
-end
+        cumdims = Array{Cint}(length(xs)+1)
+        cumdims[1] = 0
+        for i = 2:length(cumdims)
+            cumdims[i] = cumdims[i-1] + size(xs[i-1],dim)
+        end
+        d_cumdims = CuArray(cumdims)
+        d_xs = cubox(xs)
 
-function Base.fill!(xs::CuArray, x)
-    function kernel(xs, x)
-        I = @cuindex xs
-        xs[I...] = x
-        return
+        gdims, bdims = cudims(length(y))
+        culaunch($f, gdims, bdims, y, dim-1, d_xs.ptr, length(xs), d_cumdims.ptr)
+        synchronize()
+        y
     end
-    blk, thr = cudims(xs)
-    @cuda (blk, thr) kernel(xs, convert(eltype(xs), x))
-    return xs
 end

@@ -1,7 +1,7 @@
 export CuArray, CuVector, CuMatrix, CuVecOrMat
 export cu, curand, curandn
 
-mutable struct CuArray{T,N} <: AbstractArray{T,N}
+mutable struct CuArray{T,N} <: AbstractCuArray{T,N}
     ptr::CuPtr
     dims::NTuple{N,Int}
 end
@@ -86,8 +86,9 @@ Base.fill(::Type{CuArray}, value::T, dims::NTuple) where T = fill!(CuArray{T}(di
 Base.reshape{T,N}(a::CuArray{T}, dims::NTuple{N,Int}) = CuArray{T,N}(a.ptr, dims)
 Base.reshape{T}(a::CuArray{T}, dims::Int...) = reshape(a, dims)
 
-Base.getindex(a::CuArray, key...) = copy!(view(a, key...))
+#Base.getindex(a::CuArray, key...) = copy!(view(a, key...))
 
+#=
 function Base.setindex!{T,N}(y::CuArray{T,N}, x::CuArray{T,N}, indexes...)
     if N <= 3
         shift = [0,0,0]
@@ -107,9 +108,9 @@ function Base.setindex!{T,N}(y::CuArray{T,N}, x::CuArray{T,N}, indexes...)
         throw("Not implemented yet.")
     end
 end
+=#
 
 Base.show(io::IO, ::Type{CuArray{T,N}}) where {T,N} = print(io, "CuArray{$T,$N}")
-
 function Base.showarray(io::IO, X::CuArray, repr::Bool=true; header=true)
     if repr
         print(io, "CuArray(")
