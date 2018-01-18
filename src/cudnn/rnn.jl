@@ -274,18 +274,18 @@ end
     Ct = cstring(T)
     f = CuFunction("""
     $(LibCUDA.Array_h)
-    __global__ void batch_rnn($Ct *y, $Ct *x, int *cumdims, int hsize, int length) {
+    __global__ void batch_rnn($Ct *y, Array<$Ct,2> x, int *cumdims, int seqlength) {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (idx >= length) return;
+        if (idx >= x.length()) return;
 
         int xj = idx / hsize;
         int xi = idx - xj * hsize;
-        int yj = xj / cumdims[1];
-        int yi = xj - yj * cumdims[1];
-        if (cumdims[yj] + yi < cumdims[yj+1]) {
-            int a = (yi + yj*cumdims[1]) * hsize + xi;
-            int b = (cumdims[yj] + yi) * hsize + xi;
-            y[a] = x[b];
+        int j = xj / seqlength;
+        int i = xj - j * seqlength;
+        int yi = xi;
+        int yj = cumdims[j] + i;
+        if (yj < cumdims[j+1]) {
+            y[yi+yj*hsize] = x[idx];
         }
     }""")
     quote
@@ -305,8 +305,8 @@ end
             cumdims[i] = cumdims[i-1] + batchdims_y[i-1]
         end
 
-        gdims, bdims = cudims(length(y))
-        culaunch($f, gdims, bdims, y.ptr, x.ptr, CuArray(cumdims).ptr, size(x,1), length(y))
+        gdims, bdims = cudims(length(x))
+        culaunch($f, gdims, bdims, y.ptr, x.ptr, CuArray(cumdims).ptr, length(x), size(x,1), length(y))
         y, batchdims_y
     end
 end
