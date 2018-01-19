@@ -57,7 +57,6 @@ function compile(code::String; headers=[], include_names=[], options=[])
     @apicall :nvrtcGetPTX (Ptr{Void},Ptr{UInt8}) prog ptx
     @apicall :nvrtcDestroyProgram (Ptr{Ptr{Void}},) Ref{Ptr{Void}}(prog)
 
-    println(String(ptx))
     String(ptx)
 end
 
