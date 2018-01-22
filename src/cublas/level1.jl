@@ -20,7 +20,7 @@ for (f,T,Ct) in (
     @eval begin
         function axpy!(n::Int, alpha::$T, x::CuArray{$T}, incx::Int,
             y::CuArray{$T}, incy::Int)
-            @apicall($f, (
+            @cublas($f, (
                 Ptr{Void},Cint,Ptr{$Ct},Ptr{$Ct},Cint,Ptr{$Ct},Cint),
                 handle(), n, [alpha], x, incx, y, incy)
             y

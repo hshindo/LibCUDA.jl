@@ -34,8 +34,8 @@ end
 
 Base.unsafe_convert(::Type{Cptr}, desc::ReduceTensorDesc) = desc.ptr
 
-function reduce(A::CuArray{T}, dim, op) where T
-    h = gethandle()
+function reduce(A::CuArray{T}, dim, op, h) where T
+    #h = gethandle()
     reducedesc = ReduceTensorDesc(T, op)
     adesc = TensorDesc(A, 4)
     cdims = ntuple(ndims(A)) do i
@@ -65,7 +65,7 @@ function reduce(A::CuArray{T}, dim, op) where T
     C, indices
 end
 
-Base.sum(x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_ADD)[1]
+sum(x::CuArray, dim::Int, handle) = reduce(x, dim, CUDNN_REDUCE_TENSOR_ADD, handle)[1]
 mul(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MUL)[1]
 Base.findmax(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MAX)
 Base.findmin(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MIN)

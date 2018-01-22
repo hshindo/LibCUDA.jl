@@ -21,7 +21,10 @@ cu(x::Array; stream=C_NULL) = CuArray(x, stream=stream)
 
 Base.length(x::CuArray) = prod(x.dims)
 Base.size(x::CuArray) = x.dims
-Base.size(x::CuArray, d::Int) = x.dims[d]
+function Base.size(x::CuArray{T,N}, d::Int) where {T,N}
+    @assert d > 0
+    d <= N ? x.dims[d] : 1
+end
 Base.ndims(x::CuArray{T,N}) where {T,N} = N
 Base.eltype(x::CuArray{T}) where T = T
 function Base.stride(x::CuArray, dim::Int)

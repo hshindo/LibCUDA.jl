@@ -66,6 +66,7 @@ include("arraymath.jl")
 include("subarray.jl")
 include("cat.jl")
 include("devicearray.jl")
+include("reducedim.jl")
 
 if Configured
     setdevice(0)

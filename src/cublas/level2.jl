@@ -14,7 +14,7 @@ for (f,T,Ct) in (
             lda = max(1, stride(A,2))
             incx = stride(x, 1)
             incy = stride(y, 1)
-            @apicall($f, (
+            @cublas($f, (
                 Ptr{Void},Cint,Cint,Cint,
                 Ptr{$Ct},Ptr{$Ct},Cint,
                 Ptr{$Ct},Cint,

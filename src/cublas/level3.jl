@@ -15,7 +15,7 @@ for (f,T,Ct) in (
             if m != size(C,1) || n != size(C,2) || k != size(B, tB == 'N' ? 1 : 2)
                 throw(DimensionMismatch())
             end
-            @apicall($f, (
+            @cublas($f, (
                 Ptr{Void},Cint,Cint,
                 Cint,Cint,Cint,
                 Ptr{$Ct},Ptr{$Ct},Cint,

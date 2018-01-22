@@ -25,7 +25,7 @@ function errorstring(status)
     throw("UNKNOWN ERROR")
 end
 
-macro apicall(f, rettypes, args...)
+macro cublas(f, rettypes, args...)
     f = get(define, f.args[1], f.args[1])
     quote
         status = ccall(($(QuoteNode(f)),libcublas), Cint, $(esc(rettypes)), $(map(esc,args)...))
@@ -46,21 +46,21 @@ function handle()
     h = Handles[dev+1]
     if h == Ptr{Void}(0)
         ref = Ref{Ptr{Void}}()
-        @apicall :cublasCreate (Ptr{Void},) ref
+        @cublas :cublasCreate (Ptr{Void},) ref
         h = ref[]
         Handles[dev+1] = h
-        atexit(() -> @apicall :cublasDestroy (Ptr{Void},) h)
+        atexit(() -> @cublas :cublasDestroy (Ptr{Void},) h)
     end
     h
 end
 
 const API_VERSION = begin
     ref = Ref{Ptr{Void}}()
-    @apicall :cublasCreate (Ptr{Void},) ref
+    @cublas :cublasCreate (Ptr{Void},) ref
     h = ref[]
     ref = Ref{Cint}()
-    @apicall :cublasGetVersion (Ptr{Void},Ptr{Cint}) h ref
-    @apicall :cublasDestroy (Ptr{Void},) h
+    @cublas :cublasGetVersion (Ptr{Void},Ptr{Cint}) h ref
+    @cublas :cublasDestroy (Ptr{Void},) h
     Int(ref[])
 end
 info("CUBLAS API $API_VERSION")
@@ -75,5 +75,6 @@ end
 include("level1.jl")
 include("level2.jl")
 include("level3.jl")
+include("extension.jl")
 
 end
