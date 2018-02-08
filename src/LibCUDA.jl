@@ -8,8 +8,18 @@ end
 const Configured = !isempty(libcuda)
 Configured || warn("CUDA library cannot be found. LibCUDA does not work correctly.")
 
+function checkstatus(status)
+    if status != 0
+        # Base.show_backtrace(STDOUT, backtrace())
+        ref = Ref{Cstring}()
+        ccall((:cuGetErrorString,libcuda), Cint, (Cint,Ptr{Cstring}), status, ref)
+        throw(unsafe_string(ref[]))
+    end
+end
+
 if Configured
-    ccall((:cuInit,libcuda), Cint, (Cint,), 0)
+    status = ccall((:cuInit,libcuda), Cint, (Cint,), 0)
+    checkstatus(status)
 end
 
 const API_VERSION = begin
@@ -66,6 +76,7 @@ include("arraymath.jl")
 include("subarray.jl")
 include("cat.jl")
 include("devicearray.jl")
+include("reduce.jl")
 include("reducedim.jl")
 
 if Configured

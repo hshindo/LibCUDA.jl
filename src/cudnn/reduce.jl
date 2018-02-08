@@ -38,10 +38,9 @@ function reduce(A::CuArray{T}, dim, op) where T
     h = gethandle()
     reducedesc = ReduceTensorDesc(T, op)
     adesc = TensorDesc(A, 4)
-    cdims = ntuple(ndims(A)) do i
-        i == dim ? 1 : size(A,i)
-    end
-    C = similar(A, cdims)
+    cdims = Int[size(A)...]
+    cdims[dim] = 1
+    C = similar(A, cdims...)
     cdesc = TensorDesc(C, 4)
 
     ref = Ref{Csize_t}()
@@ -64,21 +63,3 @@ function reduce(A::CuArray{T}, dim, op) where T
 
     C, indices
 end
-
-Base.sum(x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_ADD)[1]
-mul(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MUL)[1]
-Base.findmax(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MAX)
-Base.findmin(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MIN)
-Base.maximum(::typeof(abs), x::CuArray, dim::Int) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AMAX)[1]
-Base.mean(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_AVG)[1]
-
-function Base.norm(x::CuArray, dim::Int, p::Int)
-    if p == 1
-        reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM1)[1]
-    elseif p == 2
-        reduce(x, dim, CUDNN_REDUCE_TENSOR_NORM2)[1]
-    else
-        throw("Not supported. Valid p: 1 or 2.")
-    end
-end
-# mul_nozeros(x::CuArray, dim) = reduce(x, dim, CUDNN_REDUCE_TENSOR_MUL_NO_ZEROS)
