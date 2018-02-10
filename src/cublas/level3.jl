@@ -21,7 +21,7 @@ for (f,T,Ct) in (
                 Ptr{$Ct},Ptr{$Ct},Cint,
                 Ptr{$Ct},Cint,
                 Ptr{$Ct},Ptr{$Ct},Cint),
-                handle(), cublasop(tA), cublasop(tB), m, n, k,
+                gethandle(), cublasop(tA), cublasop(tB), m, n, k,
                 $T[alpha], A, stride(A,2), B, stride(B,2), $T[beta], C, stride(C,2))
             C
         end

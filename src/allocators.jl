@@ -12,7 +12,7 @@ end
 function alloc(::NaiveAllocator, bytesize::Int)
     @assert bytesize >= 0
     bytesize == 0 && return CuPtr(UInt64(0),0)
-    
+
     dptr = memalloc_gc(bytesize)
     ptr = CuPtr(dptr, bytesize)
     finalizer(ptr, x -> memfree(x.dptr))

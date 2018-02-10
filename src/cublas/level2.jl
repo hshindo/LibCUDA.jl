@@ -19,7 +19,7 @@ for (f,T,Ct) in (
                 Ptr{$Ct},Ptr{$Ct},Cint,
                 Ptr{$Ct},Cint,
                 Ptr{$Ct},Ptr{$Ct},Cint),
-                handle(), cublasop(tA), m, n, [alpha], A, lda, x, incx, [beta], y, incy)
+                gethandle(), cublasop(tA), m, n, [alpha], A, lda, x, incx, [beta], y, incy)
             y
         end
     end

@@ -51,7 +51,6 @@ mutable struct Handle
         handle
     end
 end
-
 Base.unsafe_convert(::Type{Cptr}, h::Handle) = h.ptr
 
 const Handles = []

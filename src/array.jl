@@ -16,8 +16,8 @@ function CuArray{T}(dims::NTuple{N,Int}) where {T,N}
 end
 CuArray{T}(dims::Int...) where T = CuArray{T}(dims)
 CuArray{T}(ptr::CuPtr, dims::NTuple{N,Int}) where {T,N} = CuArray{T,N}(ptr, dims)
-CuArray(x::Array{T,N}; stream=C_NULL) where {T,N} = copy!(CuArray{T}(size(x)), x, stream=stream)
-cu(x::Array; stream=C_NULL) = CuArray(x, stream=stream)
+CuArray(x::Array{T,N}) where {T,N} = copy!(CuArray{T}(size(x)), x)
+CuArray(x::CuArray) = x
 
 Base.length(x::CuArray) = prod(x.dims)
 Base.size(x::CuArray) = x.dims

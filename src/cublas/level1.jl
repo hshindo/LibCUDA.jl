@@ -22,7 +22,7 @@ for (f,T,Ct) in (
             y::CuArray{$T}, incy::Int)
             @cublas($f, (
                 Ptr{Void},Cint,Ptr{$Ct},Ptr{$Ct},Cint,Ptr{$Ct},Cint),
-                handle(), n, [alpha], x, incx, y, incy)
+                gethandle(), n, [alpha], x, incx, y, incy)
             y
         end
     end

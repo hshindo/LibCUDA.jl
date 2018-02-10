@@ -21,12 +21,14 @@ end
 
 Base.unsafe_convert(::Type{Cptr}, desc::DropoutDesc) = desc.ptr
 
+#=
 @generated function DropoutDesc(::Type{Val{droprate}}) where droprate
     dropdesc = DropoutDesc(droprate)
     quote
         $dropdesc
     end
 end
+=#
 
 function dropout(x::CuArray{T,N}, droprate::Float64) where {T,N}
     dropdesc = DropoutDesc(Val{droprate})

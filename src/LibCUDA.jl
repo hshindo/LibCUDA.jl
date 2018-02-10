@@ -59,6 +59,7 @@ include("allocators.jl")
 include("module.jl")
 include("function.jl")
 include("execution.jl")
+Configured && include("NVRTC.jl")
 
 include("abstractarray.jl")
 include("array.jl")
@@ -70,13 +71,12 @@ include("reduce.jl")
 include("reducedim.jl")
 
 if Configured
-    include("NVRTC.jl")
+    setdevice(0)
     include("cublas/CUBLAS.jl")
     include("cudnn/CUDNN.jl")
 
     using .CUDNN
     export CUDNN
-    setdevice(0)
 end
 
 end
