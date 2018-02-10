@@ -1,17 +1,18 @@
 export ndevices, getdevice, setdevice, synchronize
 
-const CuContexts = Ptr{Void}[]
-#=
-atexit() do
-    for ctx in CuContexts
-        println(ctx)
-        ctx == Ptr{Void}(0) && continue
-        #@apicall :cuCtxSetCurrent (Ptr{Void},) ctx
-        #@apicall :cuCtxDestroy (Ptr{Void},) ctx
-        println("destroyed")
+mutable struct CuContext
+    ptr::Ptr{Void}
+
+    function CuContext(dev::Int)
+        ref = Ref{Ptr{Void}}()
+        @apicall :cuCtxCreate (Ptr{Ptr{Void}},Cuint,Cint) ref 0 dev
+        ctx = new(ref[])
+        finalizer(ctx, x -> @apicall :cuCtxDestroy (Ptr{Void},) x.ptr)
+        ctx
     end
 end
-=#
+
+const CuContexts = []
 
 function getdevice()
     # ref = Ref{Cint}()
@@ -22,23 +23,20 @@ end
 
 function setdevice(dev::Int)
     @assert dev >= 0
-    dev == getdevice() && return
+    dev == getdevice() && return dev
     while length(CuContexts) < dev + 1
-        push!(CuContexts, Ptr{Void}(0))
+        push!(CuContexts, nothing)
     end
-    if CuContexts[dev+1] == Ptr{Void}(0)
-        ref = Ref{Ptr{Void}}()
-        @apicall :cuCtxCreate (Ptr{Ptr{Void}},Cuint,Cint) ref 0 dev
-        ctx = ref[]
+    ctx = CuContexts[dev+1]
+    if ctx == nothing
+        ctx = CuContext(dev)
         CuContexts[dev+1] = ctx
-
         cap = capability(dev)
         mem = round(Int, totalmem(dev) / (1024^2))
         info("device[$dev]: $(devicename(dev)), capability $(cap[1]).$(cap[2]), totalmem = $(mem) MB")
     end
-    @apicall :cuCtxSetCurrent (Ptr{Void},) CuContexts[dev+1]
+    @apicall :cuCtxSetCurrent (Ptr{Void},) ctx.ptr
     global CurrentDevice = dev
-    nothing
 end
 
 synchronize() = @apicall :cuCtxSynchronize ()

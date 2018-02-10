@@ -5,8 +5,8 @@ if is_windows()
 else
     const libcuda = Libdl.find_library(["libcuda"])
 end
+
 const Configured = !isempty(libcuda)
-Configured || warn("CUDA library cannot be found. LibCUDA does not work correctly.")
 
 function checkstatus(status)
     if status != 0
@@ -20,31 +20,22 @@ end
 if Configured
     status = ccall((:cuInit,libcuda), Cint, (Cint,), 0)
     checkstatus(status)
-end
 
-const API_VERSION = begin
-    if Configured
-        ref = Ref{Cint}()
-        ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
-        Int(ref[])
-    else
-        -1
-    end
-end
-Configured && info("CUDA API $API_VERSION")
+    ref = Ref{Cint}()
+    ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
+    const API_VERSION = Int(ref[])
+    info("CUDA API $API_VERSION")
 
-include("define.jl")
+    include("define.jl")
+else
+    warn("CUDA library cannot be found. LibCUDA does not work correctly.")
+end
 
 macro apicall(f, args...)
     f = get(define, f.args[1], f.args[1])
     quote
         status = ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
-        if status != CUDA_SUCCESS
-            # Base.show_backtrace(STDOUT, backtrace())
-            ref = Ref{Cstring}()
-            ccall((:cuGetErrorString,libcuda), Cint, (Cint,Ptr{Cstring}), status, ref)
-            throw(unsafe_string(ref[]))
-        end
+        checkstatus(status)
     end
 end
 
@@ -68,7 +59,6 @@ include("allocators.jl")
 include("module.jl")
 include("function.jl")
 include("execution.jl")
-Configured && include("NVRTC.jl")
 
 include("abstractarray.jl")
 include("array.jl")
@@ -80,12 +70,13 @@ include("reduce.jl")
 include("reducedim.jl")
 
 if Configured
-    setdevice(0)
+    include("NVRTC.jl")
     include("cublas/CUBLAS.jl")
     include("cudnn/CUDNN.jl")
 
     using .CUDNN
     export CUDNN
+    setdevice(0)
 end
 
 end
