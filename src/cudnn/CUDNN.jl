@@ -16,7 +16,7 @@ macro cudnn(f, args...)
     quote
         status = ccall(($f,libcudnn), Cint, $(map(esc,args)...))
         if status != 0
-            Base.show_backtrace(STDOUT, backtrace())
+            # Base.show_backtrace(STDOUT, backtrace())
             p = ccall((:cudnnGetErrorString,libcudnn), Ptr{UInt8}, (Cint,), status)
             throw(unsafe_string(p))
         end
@@ -54,6 +54,9 @@ end
 Base.unsafe_convert(::Type{Cptr}, h::Handle) = h.ptr
 
 const Handles = []
+atexit() do
+    empty!(Handles)
+end
 
 function gethandle()
     dev = getdevice()

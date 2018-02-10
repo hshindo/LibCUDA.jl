@@ -13,6 +13,9 @@ mutable struct CuContext
 end
 
 const CuContexts = []
+atexit() do
+    empty!(CuContexts)
+end
 
 function getdevice()
     # ref = Ref{Cint}()

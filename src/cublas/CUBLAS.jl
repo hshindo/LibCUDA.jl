@@ -50,6 +50,9 @@ end
 Base.unsafe_convert(::Type{Ptr{Void}}, h::Handle) = h.ptr
 
 const Handles = []
+atexit() do
+    empty!(Handles)
+end
 
 function gethandle()
     dev = getdevice()
