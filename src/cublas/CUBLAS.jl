@@ -36,33 +36,20 @@ macro cublas(f, rettypes, args...)
     end
 end
 
-mutable struct Handle
-    ptr::Ptr{Void}
-
-    function Handle()
-        ref = Ref{Ptr{Void}}()
-        @cublas :cublasCreate (Ptr{Ptr{Void}},) ref
-        handle = new(ref[])
-        finalizer(handle, x -> @cublas :cublasDestroy (Ptr{Void},) x.ptr)
-        handle
-    end
-end
-Base.unsafe_convert(::Type{Ptr{Void}}, h::Handle) = h.ptr
-
-const Handles = []
-atexit() do
-    empty!(Handles)
-end
+const Handles = Ptr{Void}[]
 
 function gethandle()
     dev = getdevice()
     while length(Handles) < dev + 1
-        push!(Handles, nothing)
+        push!(Handles, Ptr{Void}(0))
     end
     h = Handles[dev+1]
-    if h == nothing
-        h = Handle()
+    if h == Ptr{Void}(0)
+        ref = Ref{Ptr{Void}}()
+        @cublas :cublasCreate (Ptr{Ptr{Void}},) ref
+        h = ref[]
         Handles[dev+1] = h
+        # atexit(() -> @cublas :cublasDestroy (Ptr{Void},) h)
     end
     h
 end

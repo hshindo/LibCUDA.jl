@@ -46,8 +46,6 @@ macro apicall_nocheck(f, args...)
     end
 end
 
-CurrentDevice = -1
-
 export cstring
 cstring(::Type{Float32}) = "float"
 

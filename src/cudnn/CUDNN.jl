@@ -40,38 +40,25 @@ datatype(::Type{Float16}) = CUDNN_DATA_HALF
 datatype(::Type{Int8}) = CUDNN_DATA_INT8
 datatype(::Type{Int32}) = CUDNN_DATA_INT32
 
-mutable struct Handle
-    ptr::Ptr{Void}
-
-    function Handle()
-        ref = Ref{Ptr{Void}}()
-        @cudnn :cudnnCreate (Ptr{Ptr{Void}},) ref
-        handle = new(ref[])
-        finalizer(handle, h -> @cudnn :cudnnDestroy (Ptr{Void},) h.ptr)
-        handle
-    end
-end
-Base.unsafe_convert(::Type{Cptr}, h::Handle) = h.ptr
-
-const Handles = []
-atexit() do
-    empty!(Handles)
-end
+const Handles = Ptr{Void}[]
 
 function gethandle()
     dev = getdevice()
     while length(Handles) < dev + 1
-        push!(Handles, nothing)
+        push!(Handles, Ptr{Void}(0))
     end
     h = Handles[dev+1]
-    if h == nothing
-        h = Handle()
+    if h == Ptr{Void}(0)
+        ref = Ref{Ptr{Void}}()
+        @cudnn :cudnnCreate (Ptr{Ptr{Void}},) ref
+        h = ref[]
         Handles[dev+1] = h
+        # atexit(() -> @cudnn :cudnnDestroy (Ptr{Void},) h)
     end
     h
 end
 
-function setstream(handle::Handle, stream)
+function setstream(handle::Ptr{Void}, stream)
     @cudnn :cudnnSetStream (Ptr{Void},Ptr{Void}) handle stream
 end
 
