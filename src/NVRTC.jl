@@ -5,7 +5,20 @@ if is_windows()
 else
     const libnvrtc = Libdl.find_library(["libnvrtc"])
 end
-isempty(libnvrtc) && throw("NVRTC library cannot be found.")
+const Configured = !isempty(libnvrtc)
+
+if Configured
+    ref_major = Ref{Cint}()
+    ref_minor = Ref{Cint}()
+    ccall((:nvrtcVersion,libnvrtc), Cint, (Ptr{Cint},Ptr{Cint}), ref_major, ref_minor)
+    major = Int(ref_major[])
+    minor = Int(ref_minor[])
+    const API_VERSION = 1000major + 10minor
+    info("NVRTC API $API_VERSION")
+else
+    const API_VERSION = 0
+    warn("NVRTC library cannot be found.")
+end
 
 macro apicall(f, args...)
     quote
@@ -17,16 +30,6 @@ macro apicall(f, args...)
         end
     end
 end
-
-const API_VERSION = begin
-    ref_major = Ref{Cint}()
-    ref_minor = Ref{Cint}()
-    @apicall :nvrtcVersion (Ptr{Cint},Ptr{Cint}) ref_major ref_minor
-    major = Int(ref_major[])
-    minor = Int(ref_minor[])
-    1000major + 10minor
-end
-info("NVRTC API $API_VERSION")
 
 function compile(code::String; headers=[], include_names=[], options=[])
     ref = Ref{Ptr{Void}}()

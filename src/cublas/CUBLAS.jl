@@ -7,7 +7,22 @@ if is_windows()
 else
     const libcublas = Libdl.find_library(["libcublas"])
 end
-isempty(libcublas) && throw("CUBLAS library cannot be found.")
+const Configured = !isempty(libcublas)
+
+if Configured
+    ref = Ref{Ptr{Void}}()
+    ccall((:cublasCreate_v2,libcublas), Cint, (Ptr{Ptr{Void}},), ref)
+    h = ref[]
+
+    ref = Ref{Cint}()
+    ccall((:cublasGetVersion_v2,libcublas), Cint, (Ptr{Void},Ptr{Cint}), h, ref)
+    const API_VERSION = Int(ref[])
+    info("CUBLAS API $API_VERSION")
+    ccall((:cublasDestroy_v2,libcublas), Cint, (Ptr{Void},), h)
+else
+    const API_VERSION = 0
+    warn("CUBLAS library cannot be found.")
+end
 
 include("define.jl")
 
@@ -53,14 +68,6 @@ function gethandle()
     end
     h
 end
-
-const API_VERSION = begin
-    h = gethandle()
-    ref = Ref{Cint}()
-    @cublas :cublasGetVersion (Ptr{Void},Ptr{Cint}) h ref
-    Int(ref[])
-end
-info("CUBLAS API $API_VERSION")
 
 function cublasop(t::Char)
     t == 'N' && return Cint(0)

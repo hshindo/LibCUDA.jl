@@ -5,7 +5,6 @@ if is_windows()
 else
     const libcuda = Libdl.find_library(["libcuda"])
 end
-
 const Configured = !isempty(libcuda)
 
 function checkstatus(status)
@@ -58,7 +57,8 @@ include("allocators.jl")
 include("module.jl")
 include("function.jl")
 include("execution.jl")
-Configured && include("NVRTC.jl")
+include("NVRTC.jl")
+Configured && setdevice(0)
 
 include("abstractarray.jl")
 include("array.jl")
@@ -69,13 +69,9 @@ include("devicearray.jl")
 include("reduce.jl")
 include("reducedim.jl")
 
-if Configured
-    setdevice(0)
-    include("cublas/CUBLAS.jl")
-    include("cudnn/CUDNN.jl")
-
-    using .CUDNN
-    export CUDNN
-end
+include("cublas/CUBLAS.jl")
+include("cudnn/CUDNN.jl")
+using .CUDNN
+export CUDNN
 
 end

@@ -7,10 +7,15 @@ if is_windows()
 else
     const libcudnn = Libdl.find_library(["libcudnn"])
 end
-isempty(libcudnn) && throw("CUDNN library cannot be found.")
+const Configured = !isempty(libcudnn)
 
-const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
-info("CUDNN API $API_VERSION")
+if Configured
+    const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
+    info("CUDNN API $API_VERSION")
+else
+    const API_VERSION = 0
+    warn("CUDNN library cannot be found.")
+end
 
 macro cudnn(f, args...)
     quote
