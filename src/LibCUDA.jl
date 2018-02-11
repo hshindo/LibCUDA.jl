@@ -25,11 +25,12 @@ if Configured
     ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
     const API_VERSION = Int(ref[])
     info("CUDA API $API_VERSION")
-
-    include("define.jl")
 else
     warn("CUDA library cannot be found. LibCUDA does not work correctly.")
+    const API_VERSION = 0
 end
+
+include("define.jl")
 
 macro apicall(f, args...)
     f = get(define, f.args[1], f.args[1])
