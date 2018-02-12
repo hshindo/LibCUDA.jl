@@ -58,6 +58,11 @@ mutable struct RNN
     wdesc::FilterDesc
     w::CuVector
     dw::CuVector
+    hx::CuVector
+    hxdesc::FilterDesc
+    dhx::CuVector
+    cx::CuVector
+    dcx::CuVector
 end
 
 struct RNNWork
@@ -71,7 +76,7 @@ struct RNNWork
     y
 end
 
-function RNN(insize::Int, hsize::Int, nlayers::Int, droprate::Float64, direction::Cint, mode::Cint, w::CuVector{T}) where T
+function RNN(insize::Int, hsize::Int, nlayers::Int, droprate::Float64, direction::Cint, mode::Cint, w::CuVector{T}, hx::CuVector{T}, cx::CuVector{T}) where T
     ref = Ref{Cptr}()
     @cudnn :cudnnCreateRNNDescriptor (Ptr{Cptr},) ref
     desc = ref[]
@@ -84,16 +89,9 @@ function RNN(insize::Int, hsize::Int, nlayers::Int, droprate::Float64, direction
         h, desc, hsize, nlayers, dropdesc, CUDNN_LINEAR_INPUT, direction, mode, algo, datatype(T))
 
     wdesc = FilterDesc(T, 1, 1, length(w))
-    rnn = RNN(insize, hsize, nlayers, direction, desc, wdesc, w, zeros(w))
+    rnn = RNN(insize, hsize, nlayers, direction, desc, wdesc, w, zeros(w), hx, zeros(hx), cx, zeros(cx))
     finalizer(rnn, x -> @cudnn :cudnnDestroyRNNDescriptor (Cptr,) x.desc)
     rnn
-end
-
-function LSTM(insize, hsize, nlayers, droprate, w::CuVector)
-    RNN(insize, hsize, nlayers, droprate, CUDNN_UNIDIRECTIONAL, CUDNN_LSTM, w)
-end
-function BiLSTM(insize, hsize, nlayers, droprate, w::CuVector)
-    RNN(hsize, nlayers, droprate, CUDNN_BIDIRECTIONAL, CUDNN_LSTM, w)
 end
 
 function (rnn::RNN)(x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where T
@@ -110,15 +108,12 @@ function (rnn::RNN)(x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where
     # hx,cx,hy,cy: (H,B,L) where H = hidden size, L = numLayers * (bidirectional ? 2 : 1)
     coef = rnn.direction == CUDNN_UNIDIRECTIONAL ? 1 : 2
     hxdesc = TensorDesc(T, hsize, batchdims[1], nlayers*coef)
-    hx = hy = cx = cy = C_NULL
-    #hx = CuArray{T}(hsize, batchdims[1])
-    #hy = similar(hx)
-    #cx = similar(hx)
-    #cy = similar(hx)
+    hy = zeros(rnn.hx)
+    cy = zeros(rnn.cx)
 
     # y: (1,Y,B,T) where Y = hiddenSize * (bidirectional ? 2 : 1)
     # yDesc: Array of T (1,Y,B) descriptors
-    y = CuArray{T}(hsize, coef*sum(batchdims))
+    y = CuArray{T}(hsize*coef, sum(batchdims))
     ydesc = map(batchdims) do d
         TensorDesc(T, 1, hsize*coef, d)
     end
@@ -150,12 +145,12 @@ function (rnn::RNN)(x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where
             Cptr,Csize_t),      # reservespace
             h, rnn.desc, seqlength,
             xdesc, x,
-            hxdesc, C_NULL,
-            hxdesc, C_NULL,
+            hxdesc, rnn.hx,
+            hxdesc, rnn.cx,
             rnn.wdesc, rnn.w,
             ydesc, y,
-            hxdesc, C_NULL,
-            hxdesc, C_NULL,
+            hxdesc, hy,
+            hxdesc, cy,
             workspace, length(workspace),
             reservespace, length(workspace))
         work = RNNWork(seqlength, xdesc, hxdesc, ydesc, workspace, reservespace, x, y)
@@ -173,8 +168,8 @@ function (rnn::RNN)(x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where
             Cptr,Csize_t),      # workspace
             h, rnn.desc, seqlength,
             xdesc, x,
-            hxdesc, hx,
-            hxdesc, cx,
+            hxdesc, rnn.hx,
+            hxdesc, rnn.cx,
             rnn.wdesc, rnn.w,
             ydesc, y,
             hxdesc, hy,
