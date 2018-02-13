@@ -58,11 +58,10 @@ mutable struct RNN
     wdesc::FilterDesc
     w::CuVector
     dw::CuVector
-    hx::CuVector
-    hxdesc::FilterDesc
-    dhx::CuVector
-    cx::CuVector
-    dcx::CuVector
+    hx::CuArray
+    dhx::CuArray
+    cx::CuArray
+    dcx::CuArray
 end
 
 struct RNNWork
@@ -76,7 +75,7 @@ struct RNNWork
     y
 end
 
-function RNN(insize::Int, hsize::Int, nlayers::Int, droprate::Float64, direction::Cint, mode::Cint, w::CuVector{T}, hx::CuVector{T}, cx::CuVector{T}) where T
+function RNN(insize::Int, hsize::Int, nlayers::Int, droprate::Float64, direction::Cint, mode::Cint, w::CuVector{T}, hx::CuArray{T}, cx::CuArray{T}) where T
     ref = Ref{Cptr}()
     @cudnn :cudnnCreateRNNDescriptor (Ptr{Cptr},) ref
     desc = ref[]
