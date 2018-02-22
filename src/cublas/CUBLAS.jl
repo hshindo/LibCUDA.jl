@@ -52,6 +52,11 @@ macro cublas(f, rettypes, args...)
 end
 
 const Handles = Ptr{Void}[]
+atexit() do
+    for h in Handles
+        @cublas :cublasDestroy (Ptr{Void},) h
+    end
+end
 
 function gethandle()
     dev = getdevice()

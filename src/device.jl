@@ -1,6 +1,11 @@
 export ndevices, getdevice, setdevice, synchronize
 
 const CuContexts = Ptr{Void}[]
+atexit() do
+    for ctx in CuContexts
+        @apicall :cuCtxDestroy (Ptr{Void},) ctx
+    end
+end
 
 function getdevice()
     ref = Ref{Cint}()

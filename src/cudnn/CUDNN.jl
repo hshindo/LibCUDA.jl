@@ -46,6 +46,11 @@ datatype(::Type{Int8}) = CUDNN_DATA_INT8
 datatype(::Type{Int32}) = CUDNN_DATA_INT32
 
 const Handles = Ptr{Void}[]
+atexit() do
+    for h in Handles
+        @cudnn :cudnnDestroy (Ptr{Void},) h
+    end
+end
 
 function gethandle()
     dev = getdevice()
