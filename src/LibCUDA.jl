@@ -33,16 +33,20 @@ include("define.jl")
 
 macro apicall(f, args...)
     f = get(define, f.args[1], f.args[1])
-    quote
-        status = ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
-        checkstatus(status)
+    if Configured
+        quote
+            status = ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
+            checkstatus(status)
+        end
     end
 end
 
 macro apicall_nocheck(f, args...)
     f = get(define, f.args[1], f.args[1])
-    quote
-        ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
+    if Configured
+        quote
+            ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
+        end
     end
 end
 

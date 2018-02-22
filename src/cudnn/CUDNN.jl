@@ -18,12 +18,14 @@ else
 end
 
 macro cudnn(f, args...)
-    quote
-        status = ccall(($f,libcudnn), Cint, $(map(esc,args)...))
-        if status != 0
-            # Base.show_backtrace(STDOUT, backtrace())
-            p = ccall((:cudnnGetErrorString,libcudnn), Ptr{UInt8}, (Cint,), status)
-            throw(unsafe_string(p))
+    if Configured
+        quote
+            status = ccall(($f,libcudnn), Cint, $(map(esc,args)...))
+            if status != 0
+                # Base.show_backtrace(STDOUT, backtrace())
+                p = ccall((:cudnnGetErrorString,libcudnn), Ptr{UInt8}, (Cint,), status)
+                throw(unsafe_string(p))
+            end
         end
     end
 end
@@ -48,6 +50,7 @@ datatype(::Type{Int32}) = CUDNN_DATA_INT32
 const Handles = Ptr{Void}[]
 atexit() do
     for h in Handles
+        h == Ptr{Void}(0) && continue
         @cudnn :cudnnDestroy (Ptr{Void},) h
     end
 end

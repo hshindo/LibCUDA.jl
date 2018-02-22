@@ -78,11 +78,11 @@ mutable struct MemoryPool
 end
 
 function dispose(x::MemoryPool)
+    gc()
     for dptrs in x.dptrs
         for dptr in dptrs
             memfree(dptr)
         end
-        empty!(dptrs)
     end
 end
 

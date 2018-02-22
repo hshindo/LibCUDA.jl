@@ -42,11 +42,13 @@ end
 
 macro cublas(f, rettypes, args...)
     f = get(define, f.args[1], f.args[1])
-    quote
-        status = ccall(($(QuoteNode(f)),libcublas), Cint, $(esc(rettypes)), $(map(esc,args)...))
-        if status != 0
-            # Base.show_backtrace(STDOUT, backtrace())
-            throw(errorstring(status))
+    if Configured
+        quote
+            status = ccall(($(QuoteNode(f)),libcublas), Cint, $(esc(rettypes)), $(map(esc,args)...))
+            if status != 0
+                # Base.show_backtrace(STDOUT, backtrace())
+                throw(errorstring(status))
+            end
         end
     end
 end
@@ -54,6 +56,7 @@ end
 const Handles = Ptr{Void}[]
 atexit() do
     for h in Handles
+        h == Ptr{Void}(0) && continue
         @cublas :cublasDestroy (Ptr{Void},) h
     end
 end
