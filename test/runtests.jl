@@ -3,7 +3,6 @@ using LibCUDA
 
 Base.isapprox(x::Array, y::CuArray) = isapprox(x, Array(y))
 
-setdevice(0)
 T = Float32
 
 @testset "array" for i=1:5
@@ -11,6 +10,14 @@ T = Float32
     cux = CuArray(x)
     fill!(cux, 3)
     @test all(v -> v == T(3), Array(cux))
+end
+
+@testset "getindex" for i=1:5
+    x = randn(T, 10, 5, 7)
+    cux = CuArray(x)
+    y = x[:, 2:4, 3:5]
+    cuy = cux[:, 2:4, 3:5]
+    @test y ≈ cuy
 end
 
 @testset "reduce" for i = 1:5
