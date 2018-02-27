@@ -1,14 +1,14 @@
 import Base.LinAlg.BLAS: gemm, gemm!
 
-for (f,T,Ct) in (
-    (:(:cublasDgemm),:Float64,:Cdouble),
-    (:(:cublasSgemm),:Float32,:Cfloat))
+for (f,T) in (
+    (:(:cublasDgemm),:Float64),
+    (:(:cublasSgemm),:Float32))
     @eval begin
         function gemm!(tA::Char, tB::Char,
             alpha::$T, A::CuVecOrMat{$T}, B::CuVecOrMat{$T},
             beta::$T, C::CuVecOrMat{$T})
 
-            @assert getdevice() == getdevice(A) == getdevice(B) == getdevice(C)
+            # @assert getdevice() == getdevice(A) == getdevice(B) == getdevice(C)
             m = size(A, tA == 'N' ? 1 : 2)
             k = size(A, tA == 'N' ? 2 : 1)
             n = size(B, tB == 'N' ? 2 : 1)
@@ -18,9 +18,9 @@ for (f,T,Ct) in (
             @cublas($f, (
                 Ptr{Void},Cint,Cint,
                 Cint,Cint,Cint,
-                Ptr{$Ct},Ptr{$Ct},Cint,
-                Ptr{$Ct},Cint,
-                Ptr{$Ct},Ptr{$Ct},Cint),
+                Ptr{$T},Ptr{$T},Cint,
+                Ptr{$T},Cint,
+                Ptr{$T},Ptr{$T},Cint),
                 gethandle(), cublasop(tA), cublasop(tB), m, n, k,
                 $T[alpha], A, stride(A,2), B, stride(B,2), $T[beta], C, stride(C,2))
             C

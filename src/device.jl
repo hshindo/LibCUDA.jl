@@ -4,7 +4,7 @@ const CuContexts = Ptr{Void}[]
 atexit() do
     for ctx in CuContexts
         ctx == Ptr{Void}(0) && continue
-        @apicall :cuCtxDestroy (Ptr{Void},) ctx
+        # @apicall :cuCtxDestroy (Ptr{Void},) ctx
     end
 end
 

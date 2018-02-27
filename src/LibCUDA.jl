@@ -75,6 +75,8 @@ include("reducedim.jl")
 
 include("cublas/CUBLAS.jl")
 include("cudnn/CUDNN.jl")
+using .CUBLAS
+export CUBLAS
 using .CUDNN
 export CUDNN
 
