@@ -1,4 +1,5 @@
-abstract type AbstractCuArray{T,N} <: AbstractArray{T,N} end
+export AbstractCuArray, AbstractCuVector, AbstractCuMatrx, AbstractCuVecOrMat
+abstract type AbstractCuArray{T,N} end
 
 const AbstractCuVector{T} = AbstractCuArray{T,1}
 const AbstractCuMatrix{T} = AbstractCuArray{T,2}

@@ -64,6 +64,12 @@ end
 
 Base.Array(a::CuSubArray) = Array(a.parent)[a.indexes...]
 
+function CuArray(x::CuSubArray{T}) where T
+    y = CuArray{T}(size(x))
+    copy!(y, x)
+    y
+end
+
 Base.show(io::IO, ::Type{CuSubArray{T,N}}) where {T,N} = print(io, "CuSubArray{$T,$N}")
 function Base.showarray(io::IO, X::CuSubArray, repr::Bool=true; header=true)
     if repr

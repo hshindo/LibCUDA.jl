@@ -51,6 +51,7 @@ macro apicall_nocheck(f, args...)
 end
 
 export cstring
+cstring(::Type{Int32}) = "int"
 cstring(::Type{Float32}) = "float"
 
 include("device.jl")

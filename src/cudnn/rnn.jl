@@ -93,91 +93,6 @@ function RNN(insize::Int, hsize::Int, nlayers::Int, droprate::Float64, direction
     rnn
 end
 
-function (rnn::RNN)(a::Int, x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where T
-    @assert rnn.insize == size(x,1)
-    insize, hsize, nlayers = rnn.insize, rnn.hsize, rnn.nlayers
-    seqlength = length(batchdims)
-
-    # x: (1,X,B,T) where X = inputSize, B = miniBatch, T = seqLength
-    # xDesc: Array of T (1,X,B) descriptors
-    xdesc = map(batchdims) do d
-        TensorDesc(T, 1, insize, d)
-    end
-
-    # hx,cx,hy,cy: (H,B,L) where H = hidden size, L = numLayers * (bidirectional ? 2 : 1)
-    coef = rnn.direction == CUDNN_UNIDIRECTIONAL ? 1 : 2
-    hxdesc = TensorDesc(T, hsize, batchdims[1], nlayers*coef)
-    hy = zeros(rnn.hx)
-    cy = zeros(rnn.cx)
-
-    # y: (1,Y,B,T) where Y = hiddenSize * (bidirectional ? 2 : 1)
-    # yDesc: Array of T (1,Y,B) descriptors
-    y = CuArray{T}(hsize*coef, sum(batchdims))
-    ydesc = map(batchdims) do d
-        TensorDesc(T, 1, hsize*coef, d)
-    end
-
-    h = gethandle()
-    ref = Ref{Csize_t}()
-    @cudnn(:cudnnGetRNNWorkspaceSize,
-        (Cptr,Cptr,Cint,Ptr{Cptr},Ptr{Csize_t}),
-        h, rnn.desc, seqlength, xdesc, ref)
-    workspace = CuArray{UInt8}(Int(ref[]))
-
-    if training
-        ref = Ref{Csize_t}()
-        @cudnn(:cudnnGetRNNTrainingReserveSize,
-            (Cptr,Cptr,Cint,Ptr{Cptr},Ptr{Csize_t}),
-            h, rnn.desc, seqlength, xdesc, ref)
-        reservespace = CuArray{UInt8}(Int(ref[]))
-
-        @cudnn(:cudnnRNNForwardTraining,
-            (Cptr,Cptr,Cint,
-            Ptr{Cptr},Cptr,     # x
-            Cptr,Cptr,          # hx
-            Cptr,Cptr,          # cx
-            Cptr,Cptr,          # w
-            Ptr{Cptr},Cptr,     # y
-            Cptr,Cptr,          # hy
-            Cptr,Cptr,          # cy
-            Cptr,Csize_t,       # workspace
-            Cptr,Csize_t),      # reservespace
-            h, rnn.desc, seqlength,
-            xdesc, x,
-            hxdesc, rnn.hx,
-            hxdesc, rnn.cx,
-            rnn.wdesc, rnn.w,
-            ydesc, y,
-            hxdesc, hy,
-            hxdesc, cy,
-            workspace, length(workspace),
-            reservespace, length(workspace))
-        work = RNNWork(seqlength, xdesc, hxdesc, ydesc, workspace, reservespace, x, y)
-        y, work
-    else
-        @cudnn(:cudnnRNNForwardInference,
-            (Cptr,Cptr,Cint,
-            Ptr{Cptr},Cptr,     # x
-            Cptr,Cptr,          # hx
-            Cptr,Cptr,          # cx
-            Cptr,Cptr,          # w
-            Ptr{Cptr},Cptr,     # y
-            Cptr,Cptr,          # hy
-            Cptr,Cptr,          # cy
-            Cptr,Csize_t),      # workspace
-            h, rnn.desc, seqlength,
-            xdesc, x,
-            hxdesc, rnn.hx,
-            hxdesc, rnn.cx,
-            rnn.wdesc, rnn.w,
-            ydesc, y,
-            hxdesc, hy,
-            hxdesc, cy,
-            workspace, length(workspace))
-        y, nothing
-    end
-end
-
 function (rnn::RNN)(x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where T
     @assert rnn.insize == size(x,1)
     insize, hsize, nlayers = rnn.insize, rnn.hsize, rnn.nlayers
@@ -252,12 +167,12 @@ function (rnn::RNN)(x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where
             Cptr,Csize_t),      # workspace
             h, rnn.desc, seqlength,
             xdesc, x,
-            hxdesc, rnn.hx,
-            hxdesc, rnn.cx,
+            hxdesc, C_NULL,
+            hxdesc, C_NULL,
             rnn.wdesc, rnn.w,
             ydesc, y,
-            hxdesc, hy,
-            hxdesc, cy,
+            hxdesc, C_NULL,
+            hxdesc, C_NULL,
             workspace, length(workspace))
         y, nothing
     end
