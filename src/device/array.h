@@ -3,7 +3,7 @@ struct Array {
     T *data;
     const int dims[N];
     const int strides[N];
-    bool contigious;
+    const bool contigious;
 public:
     __device__ int length() {
         int n = dims[0];
@@ -31,7 +31,7 @@ public:
         int idx = idx0*strides[0] + idx1*strides[1] + idx2*strides[2] + idx3*strides[3];
         return data[idx];
     }
-    __device__ T &operator()(int ndIdx[N]) {
+    __device__ T &operator()(const int ndIdx[N]) {
         int idx = 0;
         for (int i = 0; i < N; i++) idx += ndIdx[i] * strides[i];
         return data[idx];

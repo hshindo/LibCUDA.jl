@@ -19,7 +19,7 @@ Base.strides(a::CuSubArray, dim::Int) = a.strides[dim]
 Base.length(a::CuSubArray) = prod(a.dims)
 Base.similar(a::CuSubArray) = similar(a, size(a))
 Base.similar(a::CuSubArray, dims::Int...) = similar(a, dims)
-Base.similar{T,N}(a::CuSubArray{T}, dims::NTuple{N,Int}) = CuArray(T, dims)
+Base.similar{T,N}(a::CuSubArray{T}, dims::NTuple{N,Int}) = CuArray{T}(dims)
 
 Base.convert(::Type{Ptr{T}}, x::CuSubArray{T}) where T = pointer(x.parent, x.offset+1)
 Base.convert(::Type{UInt64}, x::CuSubArray) = UInt64(pointer(x.parent,x.offset+1))
@@ -39,6 +39,7 @@ end
 =#
 
 function Base.view(x::CuArray{T,N}, indexes...) where {T,N}
+    @assert ndims(x) == length(indexes)
     dims = Int[]
     strides = Int[]
     stride = 1
@@ -79,5 +80,71 @@ function Base.showarray(io::IO, X::CuSubArray, repr::Bool=true; header=true)
     else
         header && println(io, summary(X), ":")
         Base.showarray(io, Array(X), false, header = false)
+    end
+end
+
+@generated function Base.fill!(x::CuArray{T,N}, value) where {T,N}
+    Ct = cstring(T)
+    f = CuFunction("""
+    $Array_h
+    __global__ void fill($Ct *x, $Ct value, int length) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= length) return;
+        x[idx] = value;
+    }""")
+    quote
+        gdims, bdims = cudims(length(x))
+        culaunch($f, gdims, bdims, Ptr{T}(x), T(value), length(x))
+        x
+    end
+end
+
+@generated function Base.fill!(x::CuSubArray{T,N}, value) where {T,N}
+    Ct = cstring(T)
+    f = CuFunction("""
+    $Array_h
+    __global__ void fill(Array<$Ct,$N> x, $Ct value) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= x.length()) return;
+        x(idx) = value;
+    }""")
+    quote
+        gdims, bdims = cudims(length(x))
+        culaunch($f, gdims, bdims, x, T(value))
+        x
+    end
+end
+
+@generated function Base.copy!(y::CuArray{T,N}, x::CuSubArray{T,N}) where {T,N}
+    Ct = cstring(T)
+    f = CuFunction("""
+    $Array_h
+    __global__ void copy(Array<$Ct,$N> y, Array<$Ct,$N> x) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= x.length()) return;
+        y(idx) = x(idx);
+    }""")
+    quote
+        @assert length(y) == length(x)
+        gdims, bdims = cudims(length(x))
+        culaunch($f, gdims, bdims, y, x)
+        y
+    end
+end
+
+@generated function Base.copy!(y::CuSubArray{T,N}, x::CuArray{T,N}) where {T,N}
+    Ct = cstring(T)
+    f = CuFunction("""
+    $Array_h
+    __global__ void copy(Array<$Ct,$N> y, Array<$Ct,$N> x) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= x.length()) return;
+        y(idx) = x(idx);
+    }""")
+    quote
+        @assert length(y) == length(x)
+        gdims, bdims = cudims(length(x))
+        culaunch($f, gdims, bdims, y, x)
+        y
     end
 end

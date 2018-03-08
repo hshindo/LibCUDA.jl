@@ -68,10 +68,14 @@ struct RNNWork
     seqlength
     xdesc
     hxdesc
+    cxdesc
     ydesc
+    hydesc
+    cydesc
     workspace
     reservespace
     x
+    batchdims
     y
 end
 
@@ -106,9 +110,15 @@ function (rnn::RNN)(x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where
 
     # hx,cx,hy,cy: (H,B,L) where H = hidden size, L = numLayers * (bidirectional ? 2 : 1)
     coef = rnn.direction == CUDNN_UNIDIRECTIONAL ? 1 : 2
-    hxdesc = TensorDesc(T, hsize, batchdims[1], nlayers*coef)
-    hy = zeros(rnn.hx)
-    cy = zeros(rnn.cx)
+    hxdesc = cxdesc = hydesc = cydesc = C_NULL
+    #hxdesc = TensorDesc(T, hsize, batchdims[1], nlayers*coef)
+    #cxdesc = TensorDesc(T, hsize, batchdims[1], nlayers*coef)
+    #hydesc = TensorDesc(T, hsize, batchdims[1], nlayers*coef)
+    #cydesc = TensorDesc(T, hsize, batchdims[1], nlayers*coef)
+    # hy = zeros(rnn.hx)
+    # cy = zeros(rnn.cx)
+    hy = C_NULL
+    cy = C_NULL
 
     # y: (1,Y,B,T) where Y = hiddenSize * (bidirectional ? 2 : 1)
     # yDesc: Array of T (1,Y,B) descriptors
@@ -143,16 +153,16 @@ function (rnn::RNN)(x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where
             Cptr,Csize_t,       # workspace
             Cptr,Csize_t),      # reservespace
             h, rnn.desc, seqlength,
-            xdesc, x,
+            map(d->d.ptr,xdesc), x,
             hxdesc, C_NULL,
-            hxdesc, C_NULL,
+            cxdesc, C_NULL,
             rnn.wdesc, rnn.w,
-            ydesc, y,
-            hxdesc, C_NULL,
-            hxdesc, C_NULL,
+            map(d->d.ptr,ydesc), y,
+            hydesc, C_NULL,
+            cydesc, C_NULL,
             workspace, length(workspace),
-            reservespace, length(workspace))
-        work = RNNWork(seqlength, xdesc, hxdesc, ydesc, workspace, reservespace, x, y)
+            reservespace, length(reservespace))
+        work = RNNWork(seqlength, xdesc, hxdesc, cxdesc, ydesc, hydesc, cydesc, workspace, reservespace, x, batchdims, y)
         y, work
     else
         @cudnn(:cudnnRNNForwardInference,
@@ -166,22 +176,37 @@ function (rnn::RNN)(x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where
             Cptr,Cptr,          # cy
             Cptr,Csize_t),      # workspace
             h, rnn.desc, seqlength,
-            xdesc, x,
+            map(d->d.ptr,xdesc), x,
             hxdesc, C_NULL,
-            hxdesc, C_NULL,
+            cxdesc, C_NULL,
             rnn.wdesc, rnn.w,
-            ydesc, y,
-            hxdesc, C_NULL,
-            hxdesc, C_NULL,
+            map(d->d.ptr,ydesc), y,
+            hydesc, C_NULL,
+            cydesc, C_NULL,
             workspace, length(workspace))
         y, nothing
     end
 end
 
 function backward_data(rnn::RNN, dy::CuArray, work::RNNWork)
+    return zeros(work.x)
     h = gethandle()
+    T = eltype(work.x)
+    coef = rnn.direction == CUDNN_UNIDIRECTIONAL ? 1 : 2
     dx = similar(work.x)
+    dxdesc = map(work.batchdims) do d
+        TensorDesc(T, 1, rnn.insize, d)
+    end
+    dydesc = map(work.batchdims) do d
+        TensorDesc(T, 1, rnn.hsize*coef, d)
+    end
+
     dhy = dcy = hx = cx = dhx = dcx = C_NULL
+    xdesc, ydesc = work.xdesc, work.ydesc
+
+    #dhxdesc = TensorDesc(T, rnn.hsize, work.batchdims[1], rnn.nlayers*coef)
+    #dcxdesc = TensorDesc(T, rnn.hsize, work.batchdims[1], rnn.nlayers*coef)
+    dhxdesc = dcxdesc = C_NULL
     @cudnn(:cudnnRNNBackwardData,
         (Cptr,Cptr,Cint,
         Ptr{Cptr},Cptr,     # y
@@ -197,24 +222,27 @@ function backward_data(rnn::RNN, dy::CuArray, work::RNNWork)
         Cptr,Csize_t,   # workspace
         Cptr,Csize_t),  # reservespace
         h, rnn.desc, work.seqlength,
-        work.ydesc, work.y,
-        work.ydesc, dy,
-        work.hxdesc, dhy,
-        work.hxdesc, dcy,
+        map(d->d.ptr,ydesc), work.y,
+        map(d->d.ptr,dydesc), dy,
+        work.hydesc, dhy,
+        work.cydesc, dcy,
         rnn.wdesc, rnn.w,
         work.hxdesc, hx,
-        work.hxdesc, cx,
-        work.xdesc, dx,
-        work.hxdesc, dhx,
-        work.hxdesc, dcx,
+        work.cxdesc, cx,
+        map(d->d.ptr,dxdesc), dx,
+        dhxdesc, dhx,
+        dcxdesc, dcx,
         work.workspace, length(work.workspace),
         work.reservespace, length(work.reservespace))
     dx
 end
 
 function backward_weights!(rnn::RNN, work::RNNWork)
+    return
     h = gethandle()
     hx = C_NULL
+    xdesc, ydesc = work.xdesc, work.ydesc
+    dwdesc = FilterDesc(T, 1, 1, length(rnn.dw))
     @cudnn(:cudnnRNNBackwardWeights,
         (Cptr,Cptr,Cint,
         Ptr{Cptr},Cptr,     # x
@@ -224,11 +252,11 @@ function backward_weights!(rnn::RNN, work::RNNWork)
         Cptr,Cptr,          # dw
         Cptr,Csize_t),      # reservespace
         h, rnn.desc, work.seqlength,
-        work.xdesc, work.x,
+        map(d->d.ptr,xdesc), work.x,
         work.hxdesc, hx,
-        work.ydesc, work.y,
+        map(d->d.ptr,ydesc), work.y,
         work.workspace, length(work.workspace),
-        rnn.wdesc, rnn.dw,
+        dwdesc, rnn.dw,
         work.reservespace, length(work.reservespace))
 end
 

@@ -138,3 +138,4 @@ function free(mem::MemoryPool, ptr::CuPtr)
 end
 
 const Allocators = Any[MemoryPool()]
+# const Allocators = Any[NaiveAllocator()]
