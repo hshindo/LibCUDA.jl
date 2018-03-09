@@ -189,7 +189,7 @@ function (rnn::RNN)(x::CuMatrix{T}, batchdims::Vector{Int}; training=true) where
 end
 
 function backward_data(rnn::RNN, dy::CuArray, work::RNNWork)
-    return zeros(work.x)
+    # return zeros(work.x)
     h = gethandle()
     T = eltype(work.x)
     coef = rnn.direction == CUDNN_UNIDIRECTIONAL ? 1 : 2
@@ -238,7 +238,8 @@ function backward_data(rnn::RNN, dy::CuArray, work::RNNWork)
 end
 
 function backward_weights!(rnn::RNN, work::RNNWork)
-    return
+    # return
+    T = eltype(rnn.w)
     h = gethandle()
     hx = C_NULL
     xdesc, ydesc = work.xdesc, work.ydesc
