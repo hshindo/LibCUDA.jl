@@ -51,7 +51,7 @@ const Handles = Ptr{Void}[]
 atexit() do
     for h in Handles
         h == Ptr{Void}(0) && continue
-        @cudnn :cudnnDestroy (Ptr{Void},) h
+        # @cudnn :cudnnDestroy (Ptr{Void},) h
     end
 end
 

@@ -238,7 +238,7 @@ function backward_data(rnn::RNN, dy::CuArray, work::RNNWork)
 end
 
 function backward_weights!(rnn::RNN, work::RNNWork)
-    # return
+    return
     T = eltype(rnn.w)
     h = gethandle()
     hx = C_NULL

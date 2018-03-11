@@ -5,7 +5,7 @@ cubox(x::Int) = Cint(x)
 cubox{N}(t::NTuple{N,Int}) = map(Cint, t)
 
 function cudims(n::Int)
-    bx = 256
+    bx = 512
     gx = n <= bx ? 1 : ceil(Int, n/bx)
     (gx,1,1), (bx,1,1)
 end
