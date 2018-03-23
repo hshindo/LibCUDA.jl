@@ -5,7 +5,7 @@ using ..LibCUDA
 if is_windows()
     const libcudnn = Libdl.find_library(["cudnn64_7"])
 else
-    const libcudnn = Libdl.find_library(["libcudnn"])
+    const libcudnn = Libdl.find_library("libcudnn")
 end
 const ACTIVE = !isempty(libcudnn)
 

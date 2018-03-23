@@ -5,7 +5,7 @@ using ..LibCUDA
 if is_windows()
     const libcublas = Libdl.find_library(["cublas64_91","cublas64_90","cublas64_80","cublas64_75"])
 else
-    const libcublas = Libdl.find_library(["libcublas"])
+    const libcublas = Libdl.find_library("libcublas")
 end
 const ACTIVE = !isempty(libcublas)
 

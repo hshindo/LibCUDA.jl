@@ -41,6 +41,15 @@ macro apicall(f, args...)
     end
 end
 
+macro apicall_nocheck(f, args...)
+    f = get(DEFINE, f.args[1], f.args[1])
+    if ACTIVE
+        quote
+            ccall(($(QuoteNode(f)),libnvml), Cint, $(map(esc,args)...))
+        end
+    end
+end
+
 include("device.jl")
 
 end
