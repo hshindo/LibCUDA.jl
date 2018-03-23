@@ -1,22 +1,21 @@
 module LibCUDA
 
 if is_windows()
-    const libcuda = Libdl.find_library(["nvcuda"])
+    const libcuda = Libdl.find_library("nvcuda")
 else
-    const libcuda = Libdl.find_library(["libcuda"])
+    const libcuda = Libdl.find_library("libcuda")
 end
-const Configured = !isempty(libcuda)
+const ACTIVE = !isempty(libcuda)
 
 function checkstatus(status)
     if status != 0
-        # Base.show_backtrace(STDOUT, backtrace())
         ref = Ref{Cstring}()
         ccall((:cuGetErrorString,libcuda), Cint, (Cint,Ptr{Cstring}), status, ref)
         throw(unsafe_string(ref[]))
     end
 end
 
-if Configured
+if ACTIVE
     status = ccall((:cuInit,libcuda), Cint, (Cint,), 0)
     checkstatus(status)
 
@@ -33,7 +32,7 @@ include("define.jl")
 
 macro apicall(f, args...)
     f = get(define, f.args[1], f.args[1])
-    if Configured
+    if ACTIVE
         quote
             status = ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
             checkstatus(status)
@@ -43,7 +42,7 @@ end
 
 macro apicall_nocheck(f, args...)
     f = get(define, f.args[1], f.args[1])
-    if Configured
+    if ACTIVE
         quote
             ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
         end
@@ -62,8 +61,9 @@ include("allocators.jl")
 include("module.jl")
 include("function.jl")
 include("execution.jl")
+# include("nvml/NVML.jl")
 include("NVRTC.jl")
-Configured && setdevice(0)
+ACTIVE && setdevice(0)
 
 include("abstractarray.jl")
 include("array.jl")

@@ -7,9 +7,9 @@ if is_windows()
 else
     const libcudnn = Libdl.find_library(["libcudnn"])
 end
-const Configured = !isempty(libcudnn)
+const ACTIVE = !isempty(libcudnn)
 
-if Configured
+if ACTIVE
     const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
     info("CUDNN API $API_VERSION")
 else
@@ -18,7 +18,7 @@ else
 end
 
 macro cudnn(f, args...)
-    if Configured
+    if ACTIVE
         quote
             status = ccall(($f,libcudnn), Cint, $(map(esc,args)...))
             if status != 0

@@ -5,9 +5,9 @@ if is_windows()
 else
     const libnvrtc = Libdl.find_library(["libnvrtc"])
 end
-const Configured = !isempty(libnvrtc)
+const ACTIVE = !isempty(libnvrtc)
 
-if Configured
+if ACTIVE
     ref_major = Ref{Cint}()
     ref_minor = Ref{Cint}()
     ccall((:nvrtcVersion,libnvrtc), Cint, (Ptr{Cint},Ptr{Cint}), ref_major, ref_minor)

@@ -7,9 +7,9 @@ if is_windows()
 else
     const libcublas = Libdl.find_library(["libcublas"])
 end
-const Configured = !isempty(libcublas)
+const ACTIVE = !isempty(libcublas)
 
-if Configured
+if ACTIVE
     ref = Ref{Ptr{Void}}()
     ccall((:cublasCreate_v2,libcublas), Cint, (Ptr{Ptr{Void}},), ref)
     h = ref[]
@@ -42,7 +42,7 @@ end
 
 macro cublas(f, rettypes, args...)
     f = get(define, f.args[1], f.args[1])
-    if Configured
+    if ACTIVE
         quote
             status = ccall(($(QuoteNode(f)),libcublas), Cint, $(esc(rettypes)), $(map(esc,args)...))
             if status != 0
