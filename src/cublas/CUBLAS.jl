@@ -7,22 +7,20 @@ if is_windows()
 else
     const libcublas = Libdl.find_library("libcublas")
 end
-const ACTIVE = !isempty(libcublas)
+isempty(libcublas) && error("CUBLAS cannot be found.")
 
-if ACTIVE
+function init()
     ref = Ref{Ptr{Void}}()
     ccall((:cublasCreate_v2,libcublas), Cint, (Ptr{Ptr{Void}},), ref)
     h = ref[]
 
     ref = Ref{Cint}()
     ccall((:cublasGetVersion_v2,libcublas), Cint, (Ptr{Void},Ptr{Cint}), h, ref)
-    const API_VERSION = Int(ref[])
+    global const API_VERSION = Int(ref[])
     info("CUBLAS API $API_VERSION")
     ccall((:cublasDestroy_v2,libcublas), Cint, (Ptr{Void},), h)
-else
-    const API_VERSION = 0
-    warn("CUBLAS library cannot be found.")
 end
+init()
 
 include("define.jl")
 
@@ -41,40 +39,35 @@ function errorstring(status)
 end
 
 macro cublas(f, rettypes, args...)
-    f = get(define, f.args[1], f.args[1])
-    if ACTIVE
-        quote
-            status = ccall(($(QuoteNode(f)),libcublas), Cint, $(esc(rettypes)), $(map(esc,args)...))
-            if status != 0
-                # Base.show_backtrace(STDOUT, backtrace())
-                throw(errorstring(status))
-            end
+    f = get(DEFINE, f.args[1], f.args[1])
+    quote
+        status = ccall(($(QuoteNode(f)),libcublas), Cint, $(esc(rettypes)), $(map(esc,args)...))
+        if status != 0
+            throw(errorstring(status))
         end
     end
 end
 
-const Handles = Ptr{Void}[]
-atexit() do
-    for h in Handles
-        h == Ptr{Void}(0) && continue
+mutable struct Handle
+    ptr::Ptr{Void}
+
+    function Handle()
+        ref = Ref{Ptr{Void}}()
+        @cublas :cublasCreate (Ptr{Ptr{Void}},) ref
+        h = new(ref[])
         # @cublas :cublasDestroy (Ptr{Void},) h
+        h
     end
 end
 
+Base.unsafe_convert(::Type{Ptr{Void}}, h::Handle) = h.ptr
+
+const HANDLES = Array{Handle}(ndevices())
+
 function gethandle()
     dev = getdevice()
-    while length(Handles) < dev + 1
-        push!(Handles, Ptr{Void}(0))
-    end
-    h = Handles[dev+1]
-    if h == Ptr{Void}(0)
-        ref = Ref{Ptr{Void}}()
-        @cublas :cublasCreate (Ptr{Ptr{Void}},) ref
-        h = ref[]
-        Handles[dev+1] = h
-        # atexit(() -> @cublas :cublasDestroy (Ptr{Void},) h)
-    end
-    h
+    isassigned(HANDLES,dev) || (HANDLES[dev+1] = Handle())
+    HANDLES[dev+1]
 end
 
 function cublasop(t::Char)

@@ -7,25 +7,20 @@ if is_windows()
 else
     const libcudnn = Libdl.find_library("libcudnn")
 end
-const ACTIVE = !isempty(libcudnn)
+isempty(libcudnn) && error("CUDNN cannot be found.")
 
-if ACTIVE
-    const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
+function init()
+    global const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
     info("CUDNN API $API_VERSION")
-else
-    const API_VERSION = 0
-    warn("CUDNN library cannot be found.")
 end
+init()
 
 macro cudnn(f, args...)
-    if ACTIVE
-        quote
-            status = ccall(($f,libcudnn), Cint, $(map(esc,args)...))
-            if status != 0
-                # Base.show_backtrace(STDOUT, backtrace())
-                p = ccall((:cudnnGetErrorString,libcudnn), Ptr{UInt8}, (Cint,), status)
-                throw(unsafe_string(p))
-            end
+    quote
+        status = ccall(($f,libcudnn), Cint, $(map(esc,args)...))
+        if status != 0
+            p = ccall((:cudnnGetErrorString,libcudnn), Ptr{UInt8}, (Cint,), status)
+            throw(unsafe_string(p))
         end
     end
 end
@@ -47,31 +42,29 @@ datatype(::Type{Float16}) = CUDNN_DATA_HALF
 datatype(::Type{Int8}) = CUDNN_DATA_INT8
 datatype(::Type{Int32}) = CUDNN_DATA_INT32
 
-const Handles = Ptr{Void}[]
-atexit() do
-    for h in Handles
-        h == Ptr{Void}(0) && continue
-        # @cudnn :cudnnDestroy (Ptr{Void},) h
+mutable struct Handle
+    ptr::Ptr{Void}
+
+    function Handle()
+        ref = Ref{Ptr{Void}}()
+        @cudnn :cudnnCreate (Ptr{Ptr{Void}},) ref
+        h = new(ref[])
+        # @cudnn :cudnnDestroy (Ptr{Void},) h)
+        h
     end
 end
+
+Base.unsafe_convert(::Type{Ptr{Void}}, h::Handle) = h.ptr
+
+const HANDLES = Array{Handle}(ndevices())
 
 function gethandle()
     dev = getdevice()
-    while length(Handles) < dev + 1
-        push!(Handles, Ptr{Void}(0))
-    end
-    h = Handles[dev+1]
-    if h == Ptr{Void}(0)
-        ref = Ref{Ptr{Void}}()
-        @cudnn :cudnnCreate (Ptr{Ptr{Void}},) ref
-        h = ref[]
-        Handles[dev+1] = h
-        # atexit(() -> @cudnn :cudnnDestroy (Ptr{Void},) h)
-    end
-    h
+    isassigned(HANDLES,dev) || (HANDLES[dev+1] = Handle())
+    HANDLES[dev+1]
 end
 
-function setstream(handle::Ptr{Void}, stream)
+function setstream(handle::Handle, stream)
     @cudnn :cudnnSetStream (Ptr{Void},Ptr{Void}) handle stream
 end
 

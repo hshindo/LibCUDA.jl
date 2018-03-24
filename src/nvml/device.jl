@@ -1,3 +1,5 @@
+export free_devices
+
 function gethandle(dev::Int)
     ref = Ref{Ptr{Void}}()
     @apicall :nvmlDeviceGetHandleByIndex (Cuint,Ptr{Void}) dev ref
@@ -21,7 +23,7 @@ function free_devices(maxcount::Int)
         # setdevice(i) do
         h = gethandle(i)
         res = @apicall_nocheck :nvmlDeviceGetComputeRunningProcesses (Ptr{Void},Ptr{Cuint},Ptr{Void}) h Ref{Cuint}(0) C_NULL
-        res == 0 && push!(devs,i)
+        (res == 0 || res == 7) && push!(devs,i)
     end
     devs
 end

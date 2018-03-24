@@ -23,6 +23,7 @@ if ACTIVE
     ref = Array{Cchar}(80)
     result = ccall((:nvmlSystemGetNVMLVersion,libnvml), Cint, (Ptr{Cchar},Cuint), ref, 80)
     checkresult(result)
+    
     const API_VERSION = unsafe_string(pointer(ref))
     info("NVML $API_VERSION")
 else

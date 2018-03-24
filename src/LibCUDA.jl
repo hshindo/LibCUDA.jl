@@ -5,7 +5,7 @@ if is_windows()
 else
     const libcuda = Libdl.find_library("libcuda")
 end
-const ACTIVE = !isempty(libcuda)
+isempty(libcuda) && error("CUDA cannot be found.")
 
 function checkstatus(status)
     if status != 0
@@ -15,37 +15,32 @@ function checkstatus(status)
     end
 end
 
-if ACTIVE
+function init()
     status = ccall((:cuInit,libcuda), Cint, (Cint,), 0)
     checkstatus(status)
 
     ref = Ref{Cint}()
-    ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
-    const API_VERSION = Int(ref[])
+    status = ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
+    checkstatus(status)
+    global const API_VERSION = Int(ref[])
     info("CUDA API $API_VERSION")
-else
-    warn("CUDA library cannot be found. LibCUDA does not work correctly.")
-    const API_VERSION = 0
 end
+init()
 
 include("define.jl")
 
 macro apicall(f, args...)
     f = get(define, f.args[1], f.args[1])
-    if ACTIVE
-        quote
-            status = ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
-            checkstatus(status)
-        end
+    quote
+        status = ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
+        checkstatus(status)
     end
 end
 
 macro apicall_nocheck(f, args...)
     f = get(define, f.args[1], f.args[1])
-    if ACTIVE
-        quote
-            ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
-        end
+    quote
+        ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
     end
 end
 
@@ -61,9 +56,14 @@ include("allocators.jl")
 include("module.jl")
 include("function.jl")
 include("execution.jl")
-# include("nvml/NVML.jl")
+include("nvml/NVML.jl")
 include("NVRTC.jl")
-ACTIVE && setdevice(0)
+
+using .NVML
+export NVML
+
+const CUCONTEXTS = [CuContext(i) for i=0:ndevices()-1]
+setdevice(0)
 
 include("abstractarray.jl")
 include("array.jl")
