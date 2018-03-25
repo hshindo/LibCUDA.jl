@@ -20,7 +20,6 @@ function free_devices(maxcount::Int)
     devs = Int[]
     for i = 0:ndevices()-1
         length(devs) >= maxcount && break
-        # setdevice(i) do
         h = gethandle(i)
         res = @nvml_nocheck :nvmlDeviceGetComputeRunningProcesses (Ptr{Void},Ptr{Cuint},Ptr{Void}) h Ref{Cuint}(0) C_NULL
         (res == 0 || res == 7) && push!(devs,i)

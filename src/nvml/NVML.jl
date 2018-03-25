@@ -11,7 +11,7 @@ isempty(libnvml) && warn("NVML cannot be found.")
 
 function checkresult(result::Cint)
     if result != 0
-        p = ccall((:nvmlErrorString,libnvml), Ptr{Cchar}, (Cint,), ref)
+        p = ccall((:nvmlErrorString,libnvml), Ptr{Cchar}, (Cint,), result)
         throw(unsafe_string(p))
     end
 end
@@ -27,6 +27,7 @@ function init()
     const API_VERSION = unsafe_string(pointer(ref))
     info("NVML $API_VERSION")
 end
+init()
 
 include("define.jl")
 
