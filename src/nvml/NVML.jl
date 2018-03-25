@@ -5,7 +5,7 @@ using ..LibCUDA
 if is_windows()
     const libnvml = Libdl.find_library("nvml", [joinpath(ENV["ProgramFiles"],"NVIDIA Corporation","NVSMI")])
 else
-    const libnvml = Libdl.find_library("libnvml")
+    const libnvml = Libdl.find_library("libnvidia-ml")
 end
 isempty(libnvml) && warn("NVML cannot be found.")
 
