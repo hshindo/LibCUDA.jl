@@ -17,6 +17,7 @@ end
 CuArray{T}(dims::Int...) where T = CuArray{T}(dims)
 CuArray{T}(ptr::CuPtr, dims::NTuple{N,Int}) where {T,N} = CuArray{T,N}(ptr, dims)
 CuArray(x::Array{T,N}) where {T,N} = copy!(CuArray{T}(size(x)), x)
+CuArray(x::Array{Int}) = CuArray(Array{Cint}(x))
 CuArray(x::CuArray) = x
 
 Base.length(x::CuArray) = prod(x.dims)
@@ -82,6 +83,7 @@ end
 Base.copy(src::CuArray) = copy!(similar(src), src)
 Base.pointer(x::CuArray{T}, index::Int=1) where T = Ptr{T}(x) + sizeof(T)*(index-1)
 Base.Array(src::CuArray{T,N}) where {T,N} = copy!(Array{T}(size(src)), src)
+Base.Array(src::CuArray{Cint}) = Array{Int}(copy!(Array{Cint}(size(src)), src))
 Base.isempty(x::CuArray) = length(x) == 0
 Base.vec(x::CuArray{T}) where T = ndims(x) == 1 ? x : CuArray{T}(x.ptr, (length(x),))
 Base.fill(::Type{CuArray}, value::T, dims::NTuple) where T = fill!(CuArray{T}(dims), value)
