@@ -83,23 +83,7 @@ function Base.showarray(io::IO, X::CuSubArray, repr::Bool=true; header=true)
     end
 end
 
-@generated function Base.fill!(x::CuArray{T,N}, value) where {T,N}
-    Ct = cstring(T)
-    f = CuFunction("""
-    $Array_h
-    __global__ void fill($Ct *x, $Ct value, int length) {
-        int idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (idx >= length) return;
-        x[idx] = value;
-    }""")
-    quote
-        gdims, bdims = cudims(length(x))
-        culaunch($f, gdims, bdims, Ptr{T}(x), T(value), length(x))
-        x
-    end
-end
-
-@generated function Base.fill!(x::CuSubArray{T,N}, value) where {T,N}
+@generated function Base.fill!(x::AbstractCuArray{T,N}, value) where {T,N}
     Ct = cstring(T)
     f = CuFunction("""
     $Array_h

@@ -1,3 +1,46 @@
+function Base.cat(dim::Int, xs::AbstractCuArray{T}...) where T
+    length(xs) == 1 && return xs[1]
+    N = max(dim, maximum(ndims,xs))
+    dims = Int[size(xs[1],i) for i=1:N]
+    xs = map(xs) do x
+        if ndims(x) == N
+            x
+        else
+            dims[dim] = size(x,dim)
+            reshape(x, dims...)
+        end
+    end
+
+    dims[dim] = 0
+    for x in xs
+        dims[dim] += size(x,dim)
+        for d = 1:N
+            d == dim && continue
+            @assert size(x,d) == size(xs[1],d)
+        end
+    end
+
+    y = CuArray{T}(dims...)
+    ysize = Any[Colon() for i=1:N]
+    offset = 0
+    for x in xs
+        ysize[dim] = offset+1:offset+size(x,dim)
+        suby = view(y, ysize...)
+        copy!(suby, x)
+        offset += size(x,dim)
+    end
+    y
+end
+
+function catlinear!(y::CuArray{T}, xs::CuArray{T}...) where T
+    offset = 1
+    for x in xs
+        copy!(y, offset, x, 1, length(x))
+        offset += length(x)
+    end
+    y
+end
+
 @generated function concat!(y::CuArray{T,N}, dim::Int, x1::CuArray{T,N}, x2::CuArray{T,N}) where {T,N}
     Ct = cstring(T)
     f = CuFunction("""

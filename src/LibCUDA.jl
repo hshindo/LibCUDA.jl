@@ -1,5 +1,7 @@
 module LibCUDA
 
+using Base.Threads
+
 if is_windows()
     const libcuda = Libdl.find_library("nvcuda")
 else
@@ -49,6 +51,7 @@ cstring(::Type{Int32}) = "int"
 cstring(::Type{Float32}) = "float"
 
 include("device.jl")
+include("context.jl")
 include("pointer.jl")
 include("stream.jl")
 include("memory.jl")
@@ -61,9 +64,6 @@ include("NVRTC.jl")
 
 using .NVML
 export NVML
-
-const CUCONTEXTS = [CuContext(i) for i=0:ndevices()-1]
-setdevice(0)
 
 include("abstractarray.jl")
 include("array.jl")

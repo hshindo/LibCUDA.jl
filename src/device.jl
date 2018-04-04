@@ -1,19 +1,5 @@
 export ndevices, getdevice, setdevice, synchronize
 
-mutable struct CuContext
-    ptr::Ptr{Void}
-
-    function CuContext(dev::Int)
-        ref = Ref{Ptr{Void}}()
-        @apicall :cuCtxCreate (Ptr{Ptr{Void}},Cuint,Cint) ref 0 dev
-        ctx = new(ref[])
-        # finalize(ctx, x -> @apicall :cuCtxDestroy (Ptr{Void},) x.ptr)
-        ctx
-    end
-end
-
-Base.unsafe_convert(::Type{Ptr{Void}}, ctx::CuContext) = ctx.ptr
-
 function getdevice()
     ref = Ref{Cint}()
     @apicall :cuCtxGetDevice (Ptr{Cint},) ref
@@ -24,16 +10,15 @@ function setdevice(dev::Int)
     # cap = capability(dev)
     # mem = round(Int, totalmem(dev) / (1024^2))
     # info("device[$dev]: $(devicename(dev)), capability $(cap[1]).$(cap[2]), totalmem = $(mem) MB")
-    ctx = CUCONTEXTS[dev+1]
-    @apicall :cuCtxSetCurrent (Ptr{Void},) ctx
+    ctxs = CUCONTEXTS[threadid()]
+    if ctxs == nothing
+        ctxs = [CuContext(i) for i=0:ndevices()-1]
+        CUCONTEXTS[threadid()] = ctxs
+    end
+    @apicall :cuCtxSetCurrent (Ptr{Void},) ctxs[dev+1]
     dev
 end
-function setdevice(f::Function, dev::Int)
-    curr = getdevice()
-    setdevice(dev)
-    f()
-    setdevice(curr)
-end
+setdevice() = setdevice(threadid())
 
 synchronize() = @apicall :cuCtxSynchronize ()
 
