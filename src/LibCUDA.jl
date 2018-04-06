@@ -50,15 +50,16 @@ export cstring
 cstring(::Type{Int32}) = "int"
 cstring(::Type{Float32}) = "float"
 
-include("device.jl")
-include("context.jl")
-include("pointer.jl")
-include("stream.jl")
-include("memory.jl")
-include("allocators.jl")
-include("module.jl")
-include("function.jl")
-include("execution.jl")
+include("driver/device.jl")
+include("driver/context.jl")
+include("driver/stream.jl")
+include("driver/memory.jl")
+include("driver/allocators.jl")
+include("driver/module.jl")
+include("driver/function.jl")
+include("driver/execution.jl")
+include("driver/global.jl")
+
 include("nvml/NVML.jl")
 include("NVRTC.jl")
 

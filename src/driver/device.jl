@@ -1,4 +1,4 @@
-export ndevices, getdevice, setdevice, synchronize
+export ndevices, getdevice, setdevice
 
 function getdevice()
     ref = Ref{Cint}()
@@ -10,17 +10,10 @@ function setdevice(dev::Int)
     # cap = capability(dev)
     # mem = round(Int, totalmem(dev) / (1024^2))
     # info("device[$dev]: $(devicename(dev)), capability $(cap[1]).$(cap[2]), totalmem = $(mem) MB")
-    ctxs = CUCONTEXTS[threadid()]
-    if ctxs == nothing
-        ctxs = [CuContext(i) for i=0:ndevices()-1]
-        CUCONTEXTS[threadid()] = ctxs
-    end
-    @apicall :cuCtxSetCurrent (Ptr{Void},) ctxs[dev+1]
+    ctx = CONTEXTS[getid()]
+    setcontext(ctx)
     dev
 end
-setdevice() = setdevice(threadid())
-
-synchronize() = @apicall :cuCtxSynchronize ()
 
 function ndevices()
     ref = Ref{Cint}()

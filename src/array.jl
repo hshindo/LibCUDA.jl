@@ -11,7 +11,8 @@ const CuMatrix{T} = CuArray{T,2}
 const CuVecOrMat{T} = Union{CuVector{T},CuMatrix{T}}
 
 function CuArray{T}(dims::NTuple{N,Int}) where {T,N}
-    ptr = alloc(getallocator(), sizeof(T)*prod(dims))
+    # ptr = alloc(getallocator(), sizeof(T)*prod(dims))
+    ptr = CuPtr(sizeof(T)*prod(dims))
     CuArray{T,N}(ptr, dims)
 end
 CuArray{T}(dims::Int...) where T = CuArray{T}(dims)
@@ -44,9 +45,7 @@ Base.similar(x::CuArray{T}, dims::NTuple) where T = CuArray{T}(dims)
 Base.similar(x::CuArray{T}, dims::Int...) where T = similar(x, dims)
 
 Base.convert(::Type{Ptr{T}}, x::CuArray) where T = Ptr{T}(x.ptr)
-Base.convert(::Type{UInt64}, x::CuArray) = UInt64(x.ptr)
 Base.unsafe_convert(::Type{Ptr{T}}, x::CuArray) where T = Ptr{T}(x.ptr)
-Base.unsafe_convert(::Type{UInt64}, x::CuArray) = UInt64(x.ptr)
 
 Base.zeros(x::CuArray{T,N}) where {T,N} = zeros(CuArray{T}, x.dims)
 Base.zeros(::Type{CuArray{T}}, dims::Int...) where T = zeros(CuArray{T}, dims)
@@ -113,6 +112,10 @@ function Base.setindex!{T,N}(y::CuArray{T,N}, x::CuArray{T,N}, indexes...)
 end
 =#
 
+#Base.print_array(io::IO, x::CuArray) = Base.print_array(io, Array(x))
+#Base.show_vector(io::IO, x::CuArray; kwargs...) = Base.show_vector(io, Array(x); kwargs...)
+#Base.showarray(io::IO, x::CuArray, repr::Bool=true; kwargs...) = Base.showarray(io, Array(x), repr; kwargs...)
+
 Base.show(io::IO, ::Type{CuArray{T,N}}) where {T,N} = print(io, "CuArray{$T,$N}")
 function Base.showarray(io::IO, X::CuArray, repr::Bool=true; header=true)
     if repr
@@ -138,9 +141,6 @@ function curandn(::Type{T}, dims::NTuple{N,Int}) where {T,N}
 end
 curandn(::Type{T}, dims::Int...) where T = curandn(T, dims)
 curandn(dims::Int...) = curandn(Float64, dims)
-
-# TODO: device management
-getdevice(x::CuArray) = getdevice()
 
 #=
 function reshape3(x::CuArray, dim::Int)

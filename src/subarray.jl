@@ -85,16 +85,18 @@ end
 
 @generated function Base.fill!(x::AbstractCuArray{T,N}, value) where {T,N}
     Ct = cstring(T)
-    f = CuFunction("""
+    kernel = """
     $Array_h
     __global__ void fill(Array<$Ct,$N> x, $Ct value) {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx >= x.length()) return;
         x(idx) = value;
-    }""")
+    }"""
+    fid = getfid()
     quote
+        f = getfunction!($fid, $kernel)
         gdims, bdims = cudims(length(x))
-        culaunch($f, gdims, bdims, x, T(value))
+        culaunch(f, gdims, bdims, x, T(value))
         x
     end
 end
