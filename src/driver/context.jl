@@ -8,7 +8,7 @@ function CuContext(dev::Int)
     ref = Ref{Ptr{Void}}()
     @apicall :cuCtxCreate (Ptr{Ptr{Void}},Cuint,Cint) ref 0 dev
     ctx = CuContext(ref[])
-    finalizer(ctx, destroy)
+    # finalizer(ctx, destroy)
     ctx
 end
 
@@ -17,9 +17,8 @@ Base.hash(ctx::CuContext, h::UInt) = hash(ctx.ptr, h)
 Base.unsafe_convert(::Type{Ptr{Void}}, ctx::CuContext) = ctx.ptr
 
 function destroy(ctx::CuContext)
-    setcontext(ctx) do
-        @apicall :cuCtxDestroy (Ptr{Void},) ctx
-    end
+    setcontext(ctx)
+    @apicall :cuCtxDestroy (Ptr{Void},) ctx
 end
 
 function getcontext()

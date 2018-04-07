@@ -9,7 +9,7 @@ mutable struct CuPtr
         @apicall :cuMemAlloc (Ptr{Ptr{Void}},Csize_t) ref bytesize
         ctx = getcontext()
         ptr = new(ref[], bytesize, ctx)
-        finalizer(ptr, memfree)
+        # finalizer(ptr, memfree)
         ptr
     end
 end
@@ -18,7 +18,9 @@ Base.convert(::Type{Ptr{T}}, p::CuPtr) where T = Ptr{T}(p.ptr)
 Base.unsafe_convert(::Type{Ptr{T}}, p::CuPtr) where T = Ptr{T}(p.ptr)
 
 function memfree(ptr::CuPtr)
-    @apicall :cuMemFree (Ptr{Void},) ptr
+    setcontext(ptr.ctx) do
+        @apicall :cuMemFree (Ptr{Void},) ptr
+    end
 end
 
 function meminfo()

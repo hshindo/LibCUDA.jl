@@ -7,10 +7,15 @@ function getdevice()
 end
 
 function setdevice(dev::Int)
+    @assert dev >= 0
     # cap = capability(dev)
     # mem = round(Int, totalmem(dev) / (1024^2))
     # info("device[$dev]: $(devicename(dev)), capability $(cap[1]).$(cap[2]), totalmem = $(mem) MB")
-    ctx = CONTEXTS[getid()]
+    ctxid = dev * nthreads() + threadid()
+    if !isassigned(CONTEXTS, ctxid)
+        CONTEXTS[ctxid] = CuContext(dev)
+    end
+    ctx = CONTEXTS[ctxid]
     setcontext(ctx)
     dev
 end

@@ -1,20 +1,20 @@
 const CONTEXTS = Array{CuContext}(nthreads()*ndevices())
 const FUNCTIONS = Vector{CuFunction}[]
 
-getid() = getdevice() * nthreads() + threadid()
+getctxid() = getdevice() * nthreads() + threadid()
 
-function getfid()
+function getfunid!()
     push!(FUNCTIONS, Array{CuFunction}(length(CONTEXTS)))
     length(FUNCTIONS)
 end
 
-function getfunction!(fid::Int, kernel::String)
-    id = getid()
-    funs = FUNCTIONS[fid]
-    if !isassigned(funs, id)
-        funs[id] = CuFunction(kernel)
+function getfun!(funid::Int, kernel::String)
+    ctxid = getctxid()
+    funs = FUNCTIONS[funid]
+    if !isassigned(funs, ctxid)
+        funs[ctxid] = CuFunction(kernel)
     end
-    funs[id]
+    funs[ctxid]
 end
 
 #=

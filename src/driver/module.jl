@@ -7,7 +7,7 @@ function CuModule(ptx::String)
     ref = Ref{Ptr{Void}}()
     @apicall :cuModuleLoadData (Ptr{Ptr{Void}},Ptr{Void}) ref pointer(ptx)
     mod = CuModule(ref[], getcontext())
-    finalizer(mod, unload)
+    # finalizer(mod, unload)
     mod
 end
 

@@ -92,9 +92,9 @@ end
         if (idx >= x.length()) return;
         x(idx) = value;
     }"""
-    fid = getfid()
+    funid = getfunid!()
     quote
-        f = getfunction!($fid, $kernel)
+        f = getfun!($funid, $kernel)
         gdims, bdims = cudims(length(x))
         culaunch(f, gdims, bdims, x, T(value))
         x
