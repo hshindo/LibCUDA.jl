@@ -6,13 +6,11 @@ if is_windows()
 else
     const libnccl = Libdl.find_library("libnccl")
 end
-isempty(libnccl) && error("NCCL cannot be found.")
-
-const NCCL_UNIQUE_ID_BYTES = 128
+isempty(libnccl) && warn("NCCL cannot be found.")
 
 function init()
-    global const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
-    info("NCCL API $API_VERSION")
+    # global const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
+    # info("NCCL API $API_VERSION")
 end
 init()
 
@@ -26,6 +24,8 @@ macro nccl(f, args...)
     end
 end
 
+include("types.jl")
 include("comm.jl")
+include("collective.jl")
 
 end

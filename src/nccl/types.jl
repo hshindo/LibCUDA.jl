@@ -1,3 +1,5 @@
+const NCCL_UNIQUE_ID_BYTES = 128
+
 # ncclDataType_t
 const ncclInt8 = 0
 const ncclChar = 0
