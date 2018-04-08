@@ -9,11 +9,10 @@ else
 end
 isempty(libcudnn) && error("CUDNN cannot be found.")
 
-function init()
+function __init__()
     global const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
     info("CUDNN API $API_VERSION")
 end
-init()
 
 macro cudnn(f, args...)
     quote
@@ -26,43 +25,7 @@ macro cudnn(f, args...)
 end
 
 include("define.jl")
-
-# cudnnDataType_t
-const CUDNN_DATA_FLOAT = Cint(0)
-const CUDNN_DATA_DOUBLE = Cint(1)
-const CUDNN_DATA_HALF = Cint(2)
-const CUDNN_DATA_INT8 = Cint(3)
-const CUDNN_DATA_INT32 = Cint(4)
-const CUDNN_DATA_INT8x4 = Cint(5)
-
-const Cptr = Ptr{Void}
-datatype(::Type{Float32}) = CUDNN_DATA_FLOAT
-datatype(::Type{Float64}) = CUDNN_DATA_DOUBLE
-datatype(::Type{Float16}) = CUDNN_DATA_HALF
-datatype(::Type{Int8}) = CUDNN_DATA_INT8
-datatype(::Type{Int32}) = CUDNN_DATA_INT32
-
-mutable struct Handle
-    ptr::Ptr{Void}
-
-    function Handle()
-        ref = Ref{Ptr{Void}}()
-        @cudnn :cudnnCreate (Ptr{Ptr{Void}},) ref
-        h = new(ref[])
-        # @cudnn :cudnnDestroy (Ptr{Void},) h)
-        h
-    end
-end
-
-Base.unsafe_convert(::Type{Ptr{Void}}, h::Handle) = h.ptr
-
-const HANDLES = Array{Handle}(ndevices())
-
-function gethandle()
-    dev = getdevice()
-    isassigned(HANDLES,dev) || (HANDLES[dev+1] = Handle())
-    HANDLES[dev+1]
-end
+include("handle.jl")
 
 function setstream(handle::Handle, stream)
     @cudnn :cudnnSetStream (Ptr{Void},Ptr{Void}) handle stream

@@ -9,7 +9,7 @@ else
 end
 isempty(libcublas) && error("CUBLAS cannot be found.")
 
-function init()
+function __init__()
     ref = Ref{Ptr{Void}}()
     ccall((:cublasCreate_v2,libcublas), Cint, (Ptr{Ptr{Void}},), ref)
     h = ref[]
@@ -17,57 +17,21 @@ function init()
     ref = Ref{Cint}()
     ccall((:cublasGetVersion_v2,libcublas), Cint, (Ptr{Void},Ptr{Cint}), h, ref)
     global const API_VERSION = Int(ref[])
+
     info("CUBLAS API $API_VERSION")
     ccall((:cublasDestroy_v2,libcublas), Cint, (Ptr{Void},), h)
 end
-init()
 
 include("define.jl")
-
-function errorstring(status)
-    status == CUBLAS_STATUS_SUCCESS && return "SUCCESS"
-    status == CUBLAS_STATUS_NOT_INITIALIZED && return "NOT_INITIALIZED"
-    status == CUBLAS_STATUS_ALLOC_FAILED && return "ALLOC_FAILED"
-    status == CUBLAS_STATUS_INVALID_VALUE && return "INVALID_VALUE"
-    status == CUBLAS_STATUS_ARCH_MISMATCH && return "ARCH_MISMATCH"
-    status == CUBLAS_STATUS_MAPPING_ERROR && return "MAPPING_ERROR"
-    status == CUBLAS_STATUS_EXECUTION_FAILED && return "EXECUTION_FAILED"
-    status == CUBLAS_STATUS_INTERNAL_ERROR && return "INTERNAL_ERROR"
-    status == CUBLAS_STATUS_NOT_SUPPORTED && return "NOT_SUPPORTED"
-    status == CUBLAS_STATUS_LICENSE_ERROR && return "LICENSE_ERROR"
-    throw("UNKNOWN ERROR")
-end
 
 macro cublas(f, rettypes, args...)
     f = get(DEFINE, f.args[1], f.args[1])
     quote
         status = ccall(($(QuoteNode(f)),libcublas), Cint, $(esc(rettypes)), $(map(esc,args)...))
         if status != 0
-            throw(errorstring(status))
+            throw(ERROR_MESSAGE[status])
         end
     end
-end
-
-mutable struct Handle
-    ptr::Ptr{Void}
-
-    function Handle()
-        ref = Ref{Ptr{Void}}()
-        @cublas :cublasCreate (Ptr{Ptr{Void}},) ref
-        h = new(ref[])
-        # @cublas :cublasDestroy (Ptr{Void},) h
-        h
-    end
-end
-
-Base.unsafe_convert(::Type{Ptr{Void}}, h::Handle) = h.ptr
-
-const HANDLES = Array{Handle}(ndevices())
-
-function gethandle()
-    dev = getdevice()
-    isassigned(HANDLES,dev) || (HANDLES[dev+1] = Handle())
-    HANDLES[dev+1]
 end
 
 function cublasop(t::Char)
@@ -77,6 +41,7 @@ function cublasop(t::Char)
     throw("Unknown cublas operation: $(t).")
 end
 
+include("handle.jl")
 include("level1.jl")
 include("level2.jl")
 include("level3.jl")

@@ -7,7 +7,6 @@ for (f,T,Ct) in (
         function gemv!(tA::Char, alpha::$T, A::CuMatrix{$T}, x::CuVector{$T},
             beta::$T, y::CuVector{$T})
 
-            @assert getdevice() == getdevice(A) == getdevice(x) == getdevice(y)
             m, n = size(A)
             length(x) == (tA == 'N' ? n : m) || throw(DimensionMismatch(""))
             length(y) == (tA == 'N' ? m : n) || throw(DimensionMismatch(""))

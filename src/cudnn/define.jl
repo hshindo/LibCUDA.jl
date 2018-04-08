@@ -1,3 +1,18 @@
+# cudnnDataType_t
+const CUDNN_DATA_FLOAT = Cint(0)
+const CUDNN_DATA_DOUBLE = Cint(1)
+const CUDNN_DATA_HALF = Cint(2)
+const CUDNN_DATA_INT8 = Cint(3)
+const CUDNN_DATA_INT32 = Cint(4)
+const CUDNN_DATA_INT8x4 = Cint(5)
+
+const Cptr = Ptr{Void}
+datatype(::Type{Float32}) = CUDNN_DATA_FLOAT
+datatype(::Type{Float64}) = CUDNN_DATA_DOUBLE
+datatype(::Type{Float16}) = CUDNN_DATA_HALF
+datatype(::Type{Int8}) = CUDNN_DATA_INT8
+datatype(::Type{Int32}) = CUDNN_DATA_INT32
+
 # cudnnNanPropagation_t
 const CUDNN_NOT_PROPAGATE_NAN = Cint(0)
 const CUDNN_PROPAGATE_NAN = Cint(1)

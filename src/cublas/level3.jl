@@ -8,7 +8,6 @@ for (f,T) in (
             alpha::$T, A::CuVecOrMat{$T}, B::CuVecOrMat{$T},
             beta::$T, C::CuVecOrMat{$T})
 
-            # @assert getdevice() == getdevice(A) == getdevice(B) == getdevice(C)
             m = size(A, tA == 'N' ? 1 : 2)
             k = size(A, tA == 'N' ? 2 : 1)
             n = size(B, tB == 'N' ? 2 : 1)
