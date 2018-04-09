@@ -1,5 +1,5 @@
 export CuArray, CuVector, CuMatrix, CuVecOrMat
-export cu, curand, curandn
+export curand, curandn
 
 mutable struct CuArray{T,N} <: AbstractCuArray{T,N}
     ptr::CuPtr
@@ -77,21 +77,47 @@ function Base.copy!(dest::CuArray{T}, doffs::Int, src::CuArray{T}, soffs::Int, n
     @apicall :cuMemcpyDtoDAsync (Ptr{Void},Ptr{Void},Csize_t,Ptr{Void}) p_dest p_src nbytes stream
     dest
 end
-
+@generated function Base.copy!(dest::CuArray{T,N}, doffs::NTuple{N,Int}, src::CuArray{T,N}, soffs::NTuple{N,Int}, n::NTuple{N,Int}; stream=C_NULL) where {T,N}
+    throw("Not implemented yet.")
+    CT = cstring(T)
+    f = compile("""
+    shiftcopy(Array<$CT,3> dest, Array<$CT,3> src, Dims<3> shift) {
+        int idx0 = threadIdx.x + blockIdx.x * blockDim.x;
+        int idx1 = threadIdx.y + blockIdx.y * blockDim.y;
+        int idx2 = threadIdx.z + blockIdx.z * blockDim.z;
+        if (idx0 >= src.dims[0] || idx1 >= src.dims[1] || idx2 >= src.dims[2]) return;
+        dest(idx0+shift[0], idx1+shift[1], idx2+shift[2]) = src(idx0, idx1, idx2);
+    }""")
+    quote
+        launch($f, size(src), (dest,src,shift))
+        dest
+    end
+end
 Base.copy(src::CuArray) = copy!(similar(src), src)
+
 Base.pointer(x::CuArray{T}, index::Int=1) where T = Ptr{T}(x) + sizeof(T)*(index-1)
 Base.Array(src::CuArray{T,N}) where {T,N} = copy!(Array{T}(size(src)), src)
 Base.isempty(x::CuArray) = length(x) == 0
 Base.vec(x::CuArray{T}) where T = ndims(x) == 1 ? x : CuArray{T}(x.ptr, (length(x),))
-Base.fill(::Type{CuArray}, value::T, dims::NTuple) where T = fill!(CuArray{T}(dims), value)
-
 Base.reshape{T,N}(a::CuArray{T}, dims::NTuple{N,Int}) = CuArray{T,N}(a.ptr, dims)
 Base.reshape{T}(a::CuArray{T}, dims::Int...) = reshape(a, dims)
-
+Base.fill(::Type{CuArray}, value::T, dims::NTuple) where T = fill!(CuArray{T}(dims), value)
+#=
+function Base.fill!(x::CuArray{T}, value; stream=C_NULL) where T
+    s = sizeof(T)
+    if s == 4
+        @apicall :cuMemsetD32Async (Ptr{Void},Cuint,Csize_t,Ptr{Void}) x value length(x) stream
+    elseif s == 2
+        @apicall :cuMemsetD16Async (Ptr{Void},Cushort,Csize_t,Ptr{Void}) x value length(x) stream
+    elseif s == 1
+        @apicall :cuMemsetD8Async (Ptr{Void},Cuchar,Csize_t,Ptr{Void}) x value length(x) stream
+    end
+    x
+end
+=#
 #Base.getindex(a::CuArray, key...) = copy!(view(a, key...))
 
-#=
-function Base.setindex!{T,N}(y::CuArray{T,N}, x::CuArray{T,N}, indexes...)
+function Base.setindex!(y::CuArray{T,N}, x::CuArray{T,N}, indexes...) where {T,N}
     if N <= 3
         shift = [0,0,0]
         for i = 1:length(indexes)
@@ -110,11 +136,6 @@ function Base.setindex!{T,N}(y::CuArray{T,N}, x::CuArray{T,N}, indexes...)
         throw("Not implemented yet.")
     end
 end
-=#
-
-#Base.print_array(io::IO, x::CuArray) = Base.print_array(io, Array(x))
-#Base.show_vector(io::IO, x::CuArray; kwargs...) = Base.show_vector(io, Array(x); kwargs...)
-#Base.showarray(io::IO, x::CuArray, repr::Bool=true; kwargs...) = Base.showarray(io, Array(x), repr; kwargs...)
 
 Base.show(io::IO, ::Type{CuArray{T,N}}) where {T,N} = print(io, "CuArray{$T,$N}")
 function Base.showarray(io::IO, X::CuArray, repr::Bool=true; header=true)
@@ -141,35 +162,3 @@ function curandn(::Type{T}, dims::NTuple{N,Int}) where {T,N}
 end
 curandn(::Type{T}, dims::Int...) where T = curandn(T, dims)
 curandn(dims::Int...) = curandn(Float64, dims)
-
-#=
-function reshape3(x::CuArray, dim::Int)
-    d1, d2, d3 = 1, size(x,dim), 1
-    for i = 1:dim-1
-        d1 *= size(x,i)
-    end
-    for i = dim+1:ndims(x)
-        d3 *= size(x,i)
-    end
-    reshape(x, (d1,d2,d3))
-end
-reshape3{T}(x::CuArray{T,1}) = reshape(x, size(x,1), 1, 1)
-reshape3{T}(x::CuArray{T,2}) = reshape(x, size(x,1), size(x,2), 1)
-reshape3{T}(x::CuArray{T,3}) = x
-
-@generated function shiftcopy!{T}(dest::CuArray{T,3}, src::CuArray{T,3}, shift::NTuple{3,Int})
-    CT = cstring(T)
-    f = compile("""
-    shiftcopy(Array<$CT,3> dest, Array<$CT,3> src, Dims<3> shift) {
-        int idx0 = threadIdx.x + blockIdx.x * blockDim.x;
-        int idx1 = threadIdx.y + blockIdx.y * blockDim.y;
-        int idx2 = threadIdx.z + blockIdx.z * blockDim.z;
-        if (idx0 >= src.dims[0] || idx1 >= src.dims[1] || idx2 >= src.dims[2]) return;
-        dest(idx0+shift[0], idx1+shift[1], idx2+shift[2]) = src(idx0, idx1, idx2);
-    }""")
-    quote
-        launch($f, size(src), (dest,src,shift))
-        dest
-    end
-end
-=#
