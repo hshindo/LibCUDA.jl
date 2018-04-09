@@ -1,12 +1,12 @@
 mutable struct CuModule
     ptr::Ptr{Void}
-    ctx::CuContext
+    #ctx::CuContext
 end
 
 function CuModule(ptx::String)
     ref = Ref{Ptr{Void}}()
     @apicall :cuModuleLoadData (Ptr{Ptr{Void}},Ptr{Void}) ref pointer(ptx)
-    mod = CuModule(ref[], getcontext())
+    mod = CuModule(ref[])
     # finalizer(mod, unload)
     mod
 end

@@ -8,11 +8,11 @@ else
 end
 isempty(libnccl) && warn("NCCL cannot be found.")
 
-function init()
+function __init__()
+    info("NCCL API xxxx")
     # global const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
     # info("NCCL API $API_VERSION")
 end
-init()
 
 macro nccl(f, args...)
     quote

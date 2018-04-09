@@ -85,16 +85,16 @@ end
 
 @generated function Base.fill!(x::AbstractCuArray{T,N}, value) where {T,N}
     Ct = cstring(T)
-    kernel = """
+    ptx = NVRTC.compile("""
     $Array_h
     __global__ void fill(Array<$Ct,$N> x, $Ct value) {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx >= x.length()) return;
         x(idx) = value;
-    }"""
+    }""")
     funid = getfunid!()
     quote
-        f = getfun!($funid, $kernel)
+        f = getfun!($funid, $ptx)
         gdims, bdims = cudims(length(x))
         culaunch(f, gdims, bdims, x, T(value))
         x

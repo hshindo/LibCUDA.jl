@@ -11,11 +11,8 @@ function CuFunction(mod::CuModule, name::String)
     CuFunction(ref[], mod)
 end
 
-function CuFunction(kernel::String)
-    println(getcontext())
-    ptx = NVRTC.compile(kernel)
+function CuFunction(ptx::String)
     mod = CuModule(ptx)
-
     fnames = String[]
     for line in split(ptx,'\n')
         m = match(r".visible .entry (.+)\(", line) # find function name

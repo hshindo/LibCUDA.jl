@@ -8,11 +8,11 @@ function getfunid!()
     length(FUNCTIONS)
 end
 
-function getfun!(funid::Int, kernel::String)
+function getfun!(funid::Int, ptx::String)
     ctxid = getctxid()
     funs = FUNCTIONS[funid]
     if !isassigned(funs, ctxid)
-        funs[ctxid] = CuFunction(kernel)
+        funs[ctxid] = CuFunction(ptx)
     end
     funs[ctxid]
 end

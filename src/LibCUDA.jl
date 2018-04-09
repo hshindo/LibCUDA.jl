@@ -62,6 +62,7 @@ include("driver/global.jl")
 
 include("nvml/NVML.jl")
 include("NVRTC.jl")
+include("nccl/NCCL.jl")
 
 using .NVML
 export NVML
