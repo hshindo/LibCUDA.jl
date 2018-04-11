@@ -6,10 +6,11 @@ Base.isapprox(x::Array, y::CuArray) = isapprox(x, Array(y))
 T = Float32
 
 @testset "array" for i=1:5
-    x = randn(T, 10, 5)
+    x = randn(T, 10, 5, 7)
     cux = CuArray(x)
+    fill!(x, 3)
     fill!(cux, 3)
-    @test all(v -> v == T(3), Array(cux))
+    @test x ≈ cux
 end
 
 @testset "getindex" for i=1:5

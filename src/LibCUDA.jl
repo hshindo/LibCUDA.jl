@@ -57,8 +57,7 @@ include("driver/memory.jl")
 include("driver/allocators.jl")
 include("driver/module.jl")
 include("driver/function.jl")
-include("driver/execution.jl")
-include("driver/global.jl")
+include("driver/kernel.jl")
 
 include("nvml/NVML.jl")
 include("NVRTC.jl")
@@ -69,13 +68,15 @@ export NVML
 
 include("abstractarray.jl")
 include("array.jl")
-include("arraymath.jl")
 include("subarray.jl")
+include("lineararray.jl")
+include("kernels.jl")
+
+include("arraymath.jl")
 include("cat.jl")
-include("index.jl")
-include("devicearray.jl")
 include("reduce.jl")
 include("reducedim.jl")
+include("devicearray.jl")
 
 include("cublas/CUBLAS.jl")
 include("cudnn/CUDNN.jl")

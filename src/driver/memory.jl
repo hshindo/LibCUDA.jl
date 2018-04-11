@@ -1,21 +1,20 @@
-mutable struct CuPtr
-    ptr::Ptr{Void}
-    bytesize::Int
+export CuPtr
+
+mutable struct CuPtr{T}
+    ptr::Ptr{T}
+    n::Int
     ctx::CuContext
 
-    function CuPtr(bytesize::Int)
-        bytesize == 0 && return new(C_NULL,0,CuContext(C_NULL))
+    function CuPtr{T}(n::Int) where T
+        n == 0 && return new(Ptr{T}(0),0,CuContext(C_NULL))
         ref = Ref{Ptr{Void}}()
-        @apicall :cuMemAlloc (Ptr{Ptr{Void}},Csize_t) ref bytesize
+        @apicall :cuMemAlloc (Ptr{Ptr{Void}},Csize_t) ref n*sizeof(T)
         ctx = getcontext()
-        ptr = new(ref[], bytesize, ctx)
+        ptr = new(Ptr{T}(ref[]), n, ctx)
         # finalizer(ptr, memfree)
         ptr
     end
 end
-
-Base.convert(::Type{Ptr{T}}, p::CuPtr) where T = Ptr{T}(p.ptr)
-Base.unsafe_convert(::Type{Ptr{T}}, p::CuPtr) where T = Ptr{T}(p.ptr)
 
 function memfree(ptr::CuPtr)
     setcontext(ptr.ctx) do

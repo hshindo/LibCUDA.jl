@@ -9,10 +9,11 @@ else
 end
 isempty(libcudnn) && error("CUDNN cannot be found.")
 
-function __init__()
+function init()
     global const API_VERSION = Int(ccall((:cudnnGetVersion,libcudnn),Cint,()))
     info("CUDNN API $API_VERSION")
 end
+init()
 
 macro cudnn(f, args...)
     quote

@@ -9,7 +9,7 @@ else
 end
 isempty(libcublas) && error("CUBLAS cannot be found.")
 
-function __init__()
+function init()
     ref = Ref{Ptr{Void}}()
     ccall((:cublasCreate_v2,libcublas), Cint, (Ptr{Ptr{Void}},), ref)
     h = ref[]
@@ -21,6 +21,7 @@ function __init__()
     info("CUBLAS API $API_VERSION")
     ccall((:cublasDestroy_v2,libcublas), Cint, (Ptr{Void},), h)
 end
+init()
 
 include("define.jl")
 
