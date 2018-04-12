@@ -14,7 +14,7 @@ cstring(::Type{Float32}) = "float"
     quote
         @assert length(dest) == length(src)
         gdims, bdims = cudims(length(src))
-        $k(gdims, bdims, DeviceArray(dest), DeviceArray(src))
+        $k(gdims, bdims, dest, src)
         dest
     end
 end
@@ -29,7 +29,7 @@ end
     }""")
     quote
         gdims, bdims = cudims(length(x))
-        $k(gdims, bdims, DeviceArray(x), T(value))
+        $k(gdims, bdims, x, T(value))
         x
     end
 end

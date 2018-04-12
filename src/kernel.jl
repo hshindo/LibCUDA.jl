@@ -19,7 +19,7 @@ function (k::Kernel)(griddims, blockdims, args...; sharedmem=0, stream=C_NULL)
     end
     f = k.funs[id]
 
-    argptrs = Ptr{Void}[pointer_from_objref(args[i]) for i=1:length(args)]
+    argptrs = Ptr{Void}[cubox(args[i]) for i=1:length(args)]
     @apicall(:cuLaunchKernel, (
         Ptr{Void},           # function
         Cuint,Cuint,Cuint,      # grid dimensions (x, y, z)
@@ -39,3 +39,7 @@ function cudims(n::Int)
     gx = n <= bx ? 1 : ceil(Int, n/bx)
     (gx,1,1), (bx,1,1)
 end
+
+cubox(x::AbstractCuArray) = cubox(DeviceArray(x))
+cubox(x::Int) = cubox(Cint(x))
+cubox(x) = pointer_from_objref(x)
