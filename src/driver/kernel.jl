@@ -1,9 +1,12 @@
+const DEVICE_H = open(readstring, joinpath(@__DIR__,"device.h"))
+
 mutable struct Kernel
     ptx::String
     funs::Vector{CuFunction}
 end
 
 function Kernel(kernel::String)
+    kernel = "$DEVICE_H\n$kernel"
     ptx = NVRTC.compile(kernel)
     funs = Array{CuFunction}(nthreads()*ndevices())
     Kernel(ptx, funs)

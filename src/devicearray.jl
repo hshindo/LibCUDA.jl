@@ -1,5 +1,3 @@
-const Array_h = open(readstring, joinpath(@__DIR__,"device/array.h"))
-
 struct DeviceArray{T,N}
     ptr::Ptr{T}
     dims::NTuple{N,Cint}

@@ -46,10 +46,6 @@ macro apicall_nocheck(f, args...)
     end
 end
 
-export cstring
-cstring(::Type{Int32}) = "int"
-cstring(::Type{Float32}) = "float"
-
 include("driver/device.jl")
 include("driver/context.jl")
 include("driver/stream.jl")
