@@ -1,4 +1,4 @@
-export free_devices
+export free_device, free_devices
 
 function gethandle(dev::Int)
     ref = Ref{Ptr{Void}}()
@@ -24,3 +24,8 @@ function free_devices(maxcount::Int)
     devs
 end
 free_devices() = free_devices(ndevices())
+function free_device()
+    devs = free_devices(1)
+    isempty(devs) && throw("No free CUDA device.")
+    devs[1]
+end

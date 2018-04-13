@@ -1,3 +1,4 @@
+export Kernel, cudims
 const DEVICE_H = open(readstring, joinpath(@__DIR__,"device.h"))
 
 mutable struct Kernel

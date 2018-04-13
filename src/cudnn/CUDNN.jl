@@ -1,6 +1,7 @@
 module CUDNN
 
 using ..LibCUDA
+import ..LibCUDA: ndevices, getdevice
 
 if is_windows()
     const libcudnn = Libdl.find_library(["cudnn64_7"])

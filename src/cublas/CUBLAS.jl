@@ -1,6 +1,7 @@
 module CUBLAS
 
 using ..LibCUDA
+import ..LibCUDA: ndevices, getdevice
 
 if is_windows()
     const libcublas = Libdl.find_library(["cublas64_91","cublas64_90","cublas64_80","cublas64_75"])

@@ -1,6 +1,7 @@
 module NVML
 
 using ..LibCUDA
+import ..LibCUDA: ndevices, getdevice
 
 if is_windows()
     const libnvml = Libdl.find_library("nvml", [joinpath(ENV["ProgramFiles"],"NVIDIA Corporation","NVSMI")])

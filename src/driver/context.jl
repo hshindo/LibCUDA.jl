@@ -1,5 +1,3 @@
-export synchronize
-
 mutable struct CuContext
     ptr::Ptr{Void}
 end

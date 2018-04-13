@@ -1,5 +1,3 @@
-export ndevices, getdevice, setdevice
-
 function getdevice()
     ref = Ref{Cint}()
     @apicall :cuCtxGetDevice (Ptr{Cint},) ref

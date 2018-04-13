@@ -7,7 +7,8 @@ if is_windows()
 else
     const libcuda = Libdl.find_library("libcuda")
 end
-isempty(libcuda) && error("CUDA cannot be found.")
+const AVAILABLE = !isempty(libcuda)
+AVAILABLE || warn("CUDA cannot be found.")
 
 function checkstatus(status)
     if status != 0
@@ -24,8 +25,13 @@ function init()
     ref = Ref{Cint}()
     status = ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
     checkstatus(status)
-    global const API_VERSION = Int(ref[])
-    info("CUDA API $API_VERSION")
+
+    if AVAILABLE
+        global const API_VERSION = Int(ref[])
+        info("CUDA API $API_VERSION")
+    else
+        global const API_VERSION = 0
+    end
 end
 init()
 
@@ -54,12 +60,12 @@ include("driver/allocators.jl")
 include("driver/module.jl")
 include("driver/function.jl")
 
-include("nvml/NVML.jl")
-include("NVRTC.jl")
-include("nccl/NCCL.jl")
-
-using .NVML
-export NVML
+# This must be loaded before kernel.jl and kernels.jl
+if AVAILABLE
+    include("nvml/NVML.jl")
+    include("NVRTC.jl")
+    using .NVML
+end
 
 include("abstractarray.jl")
 include("array.jl")
@@ -74,11 +80,13 @@ include("reduce.jl")
 include("reducedim.jl")
 include("devicearray.jl")
 
-include("cublas/CUBLAS.jl")
-include("cudnn/CUDNN.jl")
-using .CUBLAS
-export CUBLAS
-using .CUDNN
-export CUDNN
+if AVAILABLE
+    include("nccl/NCCL.jl")
+    include("cublas/CUBLAS.jl")
+    include("cudnn/CUDNN.jl")
+
+    using .CUBLAS, .CUDNN
+    export CUBLAS, CUDNN
+end
 
 end

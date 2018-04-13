@@ -16,6 +16,9 @@ mutable struct CuPtr{T}
     end
 end
 
+Base.convert(::Type{Ptr{T}}, x::CuPtr) where T = Ptr{T}(x.ptr)
+Base.unsafe_convert(::Type{Ptr{T}}, x::CuPtr) where T = Ptr{T}(x.ptr)
+
 function memfree(ptr::CuPtr)
     setcontext(ptr.ctx) do
         @apicall :cuMemFree (Ptr{Void},) ptr

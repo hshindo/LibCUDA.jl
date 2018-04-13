@@ -33,7 +33,9 @@ public:
     }
     __device__ T &operator()(const int ndIdx[N]) {
         int idx = 0;
-        for (int i = 0; i < N; i++) idx += ndIdx[i] * strides[i];
+        for (int i = 0; i < N; i++) {
+            idx += ndIdx[i] * strides[i];
+        }
         return data[idx];
     }
     __device__ void idx2ndIdx(int ndIdx[N], int idx) {

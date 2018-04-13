@@ -40,7 +40,7 @@ Base.convert(::Type{Ptr{T}}, x::CuArray) where T = Ptr{T}(pointer(x))
 Base.unsafe_convert(::Type{Ptr{T}}, x::CuArray) where T = Ptr{T}(pointer(x))
 
 Base.pointer(x::CuArray{T}, index::Int=1) where T = x.ptr.ptr + sizeof(T)*(index-1)
-Base.vec(x::CuArray{T}) where T = ndims(x) == 1 ? x : CuArray{T}(x.ptr, (length(x),))
+Base.vec(x::CuArray{T}) where T = ndims(x) == 1 ? x : CuArray(x.ptr, (length(x),))
 Base.reshape{T,N}(a::CuArray{T}, dims::NTuple{N,Int}) = CuArray{T,N}(a.ptr, dims)
 Base.reshape{T}(a::CuArray{T}, dims::Int...) = reshape(a, dims)
 Base.fill(::Type{CuArray}, value::T, dims::NTuple) where T = fill!(CuArray{T}(dims), value)

@@ -9,7 +9,10 @@ cstring(::Type{Float32}) = "float"
     __global__ void copy(Array<$Ct,$N> dest, Array<$Ct,$N> src) {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx >= src.length()) return;
-        dest(idx) = src(idx);
+
+        int ndIdx[$N];
+        dest.idx2ndIdx(ndIdx, idx);
+        dest(ndIdx) = src(ndIdx);
     }""")
     quote
         @assert length(dest) == length(src)
@@ -25,6 +28,7 @@ end
     __global__ void fill(Array<$Ct,$N> x, $Ct value) {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx >= x.length()) return;
+
         x(idx) = value;
     }""")
     quote
