@@ -19,14 +19,14 @@ function checkstatus(status)
 end
 
 function init()
-    status = ccall((:cuInit,libcuda), Cint, (Cint,), 0)
-    checkstatus(status)
-
-    ref = Ref{Cint}()
-    status = ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
-    checkstatus(status)
-
     if AVAILABLE
+        status = ccall((:cuInit,libcuda), Cint, (Cint,), 0)
+        checkstatus(status)
+
+        ref = Ref{Cint}()
+        status = ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
+        checkstatus(status)
+        
         global const API_VERSION = Int(ref[])
         info("CUDA API $API_VERSION")
     else

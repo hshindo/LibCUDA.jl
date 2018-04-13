@@ -5,23 +5,21 @@ Base.isapprox(x::Array, y::CuArray) = isapprox(x, Array(y))
 
 T = Float32
 
-@testset "array" for i=1:5
+if LibCUDA.AVAILABLE
     x = randn(T, 10, 5, 7)
     cux = CuArray(x)
     fill!(x, 3)
     fill!(cux, 3)
     @test x ≈ cux
-end
 
-@testset "getindex" for i=1:5
+    # getindex
     x = randn(T, 10, 5, 7)
     cux = CuArray(x)
     y = x[:, 2:4, 3:5]
     cuy = cux[:, 2:4, 3:5]
     @test y ≈ cuy
-end
 
-@testset "reduce" for i = 1:5
+    # reduce
     x = randn(T, 10, 5, 3)
     for dim = 1:ndims(x)
         y = sum(x, dim)
@@ -45,9 +43,8 @@ end
         cuy = maximum(abs, CuArray(x), dim)
         @test y ≈ cuy
     end
-end
 
-@testset "BLAS" for i = 1:5
+    # BLAS
     x = randn(T, 10, 5)
     y = randn(T, 10, 5)
     cuy = CuArray(y)
@@ -80,4 +77,6 @@ end
     for (C,cuC) in zip(Cs,cuCs)
         @test C ≈ Array(cuC)
     end
+else
+    warn("LibCUDA.jl is unavailable. Skipping on-device tests.")
 end
