@@ -26,7 +26,7 @@ function init()
         ref = Ref{Cint}()
         status = ccall((:cuDriverGetVersion,libcuda), Cint, (Ptr{Cint},), ref)
         checkstatus(status)
-        
+
         global const API_VERSION = Int(ref[])
         info("CUDA API $API_VERSION")
     else
@@ -63,7 +63,7 @@ include("driver/function.jl")
 # This must be loaded before kernel.jl and kernels.jl
 if AVAILABLE
     include("nvml/NVML.jl")
-    include("NVRTC.jl")
+    include("nvrtc/NVRTC.jl")
     using .NVML
 end
 
