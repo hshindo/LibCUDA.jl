@@ -2,7 +2,7 @@ export CuArray, CuVector, CuMatrix, CuVecOrMat
 export curand, curandn
 
 mutable struct CuArray{T,N} <: AbstractCuArray{T,N}
-    ptr::CuPtr{T}
+    mb::MemBlock{T}
     dims::NTuple{N,Int}
 end
 
@@ -12,17 +12,22 @@ const CuVecOrMat{T} = Union{CuVector{T},CuMatrix{T}}
 
 function CuArray{T}(dims::NTuple{N,Int}) where {T,N}
     # ptr = alloc(getallocator(), sizeof(T)*prod(dims))
-    ptr = CuPtr{T}(prod(dims))
+    mb = MemBlock(T, prod(dims))
     #strides = Array{Int}(N)
     #strides[1] = 1
     #for i = 2:length(strides)
     #     strides[i] = strides[i-1] * dims[i-1]
     #end
-    CuArray(ptr, dims)
+    CuArray(mb, dims)
 end
 CuArray{T}(dims::Int...) where T = CuArray{T}(dims)
 CuArray(x::Array{T,N}) where {T,N} = copy!(CuArray{T}(size(x)), x)
 CuArray(x::CuArray) = x
+
+function unsafe_wrap(::Type{CuArray}, ptr::Ptr{T}, dims::NTuple{N,Int}) where {T,N}
+    mb = MemBlock(ptr, 0, -1)
+    CuArray(mb, dims)
+end
 
 function Base.stride(x::CuArray, dim::Int)
     d = 1
@@ -38,11 +43,10 @@ Base.strides(x::CuArray{T,4}) where T = (1,size(x,1),size(x,1)*size(x,2),size(x,
 
 Base.convert(::Type{Ptr{T}}, x::CuArray) where T = Ptr{T}(pointer(x))
 Base.unsafe_convert(::Type{Ptr{T}}, x::CuArray) where T = Ptr{T}(pointer(x))
-
-Base.pointer(x::CuArray{T}, index::Int=1) where T = x.ptr.ptr + sizeof(T)*(index-1)
-Base.vec(x::CuArray{T}) where T = ndims(x) == 1 ? x : CuArray(x.ptr, (length(x),))
-Base.reshape{T,N}(a::CuArray{T}, dims::NTuple{N,Int}) = CuArray{T,N}(a.ptr, dims)
-Base.reshape{T}(a::CuArray{T}, dims::Int...) = reshape(a, dims)
+Base.pointer(x::CuArray{T}, index::Int=1) where T = x.mb.ptr + sizeof(T)*(index-1)
+Base.vec(x::CuArray{T}) where T = ndims(x) == 1 ? x : CuArray{T}(x.mb, (length(x),))
+Base.reshape{T,N}(x::CuArray{T}, dims::NTuple{N,Int}) = CuArray{T}(x.mb, dims)
+Base.reshape{T}(x::CuArray{T}, dims::Int...) = reshape(x, dims)
 Base.fill(::Type{CuArray}, value::T, dims::NTuple) where T = fill!(CuArray{T}(dims), value)
 
 Base.zeros(::Type{CuArray{T}}, dims::Int...) where T = zeros(CuArray{T}, dims)

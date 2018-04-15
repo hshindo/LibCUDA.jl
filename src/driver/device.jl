@@ -11,6 +11,12 @@ function setdevice(dev::Int)
     setcontext(CONTEXTS[dev+1])
     dev
 end
+function setdevice(f::Function, dev::Int)
+    _dev = getdevice()
+    dev == _dev || setdevice(dev)
+    f()
+    dev == _dev || setdevice(_dev)
+end
 
 function ndevices()
     ref = Ref{Cint}()

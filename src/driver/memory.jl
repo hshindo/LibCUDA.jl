@@ -1,27 +1,27 @@
-export CuPtr
+export MemBlock
 
-mutable struct CuPtr{T}
+mutable struct MemBlock{T}
     ptr::Ptr{T}
     n::Int
-    ctx::CuContext
-
-    function CuPtr{T}(n::Int) where T
-        n == 0 && return new(Ptr{T}(0),0,CuContext(C_NULL))
-        ref = Ref{Ptr{Void}}()
-        @apicall :cuMemAlloc (Ptr{Ptr{Void}},Csize_t) ref n*sizeof(T)
-        ctx = getcontext()
-        ptr = new(Ptr{T}(ref[]), n, ctx)
-        # finalizer(ptr, memfree)
-        ptr
-    end
+    dev::Int
 end
 
-Base.convert(::Type{Ptr{T}}, x::CuPtr) where T = Ptr{T}(x.ptr)
-Base.unsafe_convert(::Type{Ptr{T}}, x::CuPtr) where T = Ptr{T}(x.ptr)
+function MemBlock(::Type{T}, n::Int) where T
+    n == 0 && return MemBlock(Ptr{T}(0),0,-1)
+    ref = Ref{Ptr{Void}}()
+    @apicall :cuMemAlloc (Ptr{Ptr{Void}},Csize_t) ref n*sizeof(T)
+    dev = getdevice()
+    mb = MemBlock(Ptr{T}(ref[]), n, dev)
+    finalizer(mb, memfree)
+    mb
+end
 
-function memfree(ptr::CuPtr)
-    setcontext(ptr.ctx) do
-        @apicall :cuMemFree (Ptr{Void},) ptr
+Base.convert(::Type{Ptr{T}}, x::MemBlock) where T = Ptr{T}(x.ptr)
+Base.unsafe_convert(::Type{Ptr{T}}, x::MemBlock) where T = Ptr{T}(x.ptr)
+
+function memfree(x::MemBlock)
+    setdevice(x.dev) do
+        @apicall :cuMemFree (Ptr{Void},) x.ptr
     end
 end
 
