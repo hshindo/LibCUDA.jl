@@ -56,7 +56,6 @@ include("driver/device.jl")
 include("driver/context.jl")
 include("driver/stream.jl")
 include("driver/memory.jl")
-include("driver/allocators.jl")
 include("driver/module.jl")
 include("driver/function.jl")
 
