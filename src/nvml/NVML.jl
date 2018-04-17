@@ -8,7 +8,7 @@ if is_windows()
 else
     const libnvml = Libdl.find_library("libnvidia-ml")
 end
-isempty(libnvml) && error("NVML cannot be found.")
+isempty(libnvml) && warn("NVML cannot be found.")
 
 function checkresult(result::Cint)
     if result != 0
