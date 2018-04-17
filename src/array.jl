@@ -2,7 +2,7 @@ export CuArray, CuVector, CuMatrix, CuVecOrMat
 export curand, curandn
 
 mutable struct CuArray{T,N} <: AbstractCuArray{T,N}
-    mb::MemBlock{T}
+    mb::MemBlock
     dims::NTuple{N,Int}
 end
 
@@ -11,20 +11,19 @@ const CuMatrix{T} = CuArray{T,2}
 const CuVecOrMat{T} = Union{CuVector{T},CuMatrix{T}}
 
 function CuArray{T}(dims::NTuple{N,Int}) where {T,N}
-    # ptr = alloc(getallocator(), sizeof(T)*prod(dims))
-    mb = MemBlock(T, prod(dims))
+    mb = malloc(sizeof(T)*prod(dims))
     #strides = Array{Int}(N)
     #strides[1] = 1
     #for i = 2:length(strides)
     #     strides[i] = strides[i-1] * dims[i-1]
     #end
-    CuArray(mb, dims)
+    CuArray{T,N}(mb, dims)
 end
 CuArray{T}(dims::Int...) where T = CuArray{T}(dims)
 CuArray(x::Array{T,N}) where {T,N} = copy!(CuArray{T}(size(x)), x)
 CuArray(x::CuArray) = x
 
-function unsafe_wrap(::Type{CuArray}, ptr::Ptr{T}, dims::NTuple{N,Int}) where {T,N}
+function unsafe_array(x::CuArray, ptr::Ptr{T}, dims::NTuple{N,Int}) where {T,N}
     mb = MemBlock(ptr, 0, -1)
     CuArray(mb, dims)
 end
@@ -43,9 +42,9 @@ Base.strides(x::CuArray{T,4}) where T = (1,size(x,1),size(x,1)*size(x,2),size(x,
 
 Base.convert(::Type{Ptr{T}}, x::CuArray) where T = Ptr{T}(pointer(x))
 Base.unsafe_convert(::Type{Ptr{T}}, x::CuArray) where T = Ptr{T}(pointer(x))
-Base.pointer(x::CuArray{T}, index::Int=1) where T = x.mb.ptr + sizeof(T)*(index-1)
-Base.vec(x::CuArray{T}) where T = ndims(x) == 1 ? x : CuArray{T}(x.mb, (length(x),))
-Base.reshape{T,N}(x::CuArray{T}, dims::NTuple{N,Int}) = CuArray{T}(x.mb, dims)
+Base.pointer(x::CuArray{T}, index::Int=1) where T = Ptr{T}(x.mb) + sizeof(T)*(index-1)
+Base.vec(x::CuArray{T}) where T = ndims(x) == 1 ? x : CuArray(x.mb, (length(x),))
+Base.reshape(x::CuArray{T}, dims::NTuple{N,Int}) where {T,N} = CuArray(x.mb, dims)
 Base.reshape{T}(x::CuArray{T}, dims::Int...) = reshape(x, dims)
 Base.fill(::Type{CuArray}, value::T, dims::NTuple) where T = fill!(CuArray{T}(dims), value)
 
@@ -53,20 +52,6 @@ Base.zeros(::Type{CuArray{T}}, dims::Int...) where T = zeros(CuArray{T}, dims)
 Base.zeros(::Type{CuArray{T}}, dims::NTuple) where T = fill!(CuArray{T}(dims), 0)
 Base.ones(::Type{CuArray{T}}, dims::Int...) where T  = ones(CuArray{T}, dims)
 Base.ones(::Type{CuArray{T}}, dims::NTuple) where T = fill!(CuArray{T}(dims), 1)
-
-#=
-function Base.fill!(x::CuArray{T}, value; stream=C_NULL) where T
-    s = sizeof(T)
-    if s == 4
-        @apicall :cuMemsetD32Async (Ptr{Void},Cuint,Csize_t,Ptr{Void}) x value length(x) stream
-    elseif s == 2
-        @apicall :cuMemsetD16Async (Ptr{Void},Cushort,Csize_t,Ptr{Void}) x value length(x) stream
-    elseif s == 1
-        @apicall :cuMemsetD8Async (Ptr{Void},Cuchar,Csize_t,Ptr{Void}) x value length(x) stream
-    end
-    x
-end
-=#
 
 function Base.getindex(x::CuArray, indexes...)
     src = view(x, indexes...)

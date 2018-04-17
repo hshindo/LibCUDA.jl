@@ -45,7 +45,7 @@ macro apicall(f, args...)
     end
 end
 
-macro apicall_nocheck(f, args...)
+macro unsafe_apicall(f, args...)
     f = get(define, f.args[1], f.args[1])
     quote
         ccall(($(QuoteNode(f)),libcuda), Cint, $(map(esc,args)...))
@@ -58,6 +58,10 @@ include("driver/stream.jl")
 include("driver/memory.jl")
 include("driver/module.jl")
 include("driver/function.jl")
+
+include("allocators/atomic_malloc.jl")
+include("allocators/cuda_malloc.jl")
+include("allocators/malloc.jl")
 
 # This must be loaded before kernel.jl and kernels.jl
 if AVAILABLE

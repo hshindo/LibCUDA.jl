@@ -22,6 +22,21 @@ cstring(::Type{Float32}) = "float"
     end
 end
 
+@generated function Base.fill!(x::CuLinearArray{T}, value) where T
+    Ct = cstring(T)
+    k = Kernel("""
+    __global__ void fill($Ct *x, int n, $Ct value) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= n) return;
+        x[idx] = value;
+    }""")
+    quote
+        gdims, bdims = cudims(length(x))
+        $k(gdims, bdims, pointer(x), length(x), T(value))
+        x
+    end
+end
+
 @generated function Base.fill!(x::AbstractCuArray{T,N}, value) where {T,N}
     Ct = cstring(T)
     k = Kernel("""

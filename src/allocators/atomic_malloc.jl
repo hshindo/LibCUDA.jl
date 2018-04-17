@@ -1,17 +1,17 @@
-mutable struct GreedyAllocator
-    dptr::UInt64
+mutable struct AtomicMalloc
+    ptr::Ptr{Void}
     bytesize::Int
     offset::Int
     unused::Vector{UInt64}
 
-    function GreedyAllocator()
-        a = new(UInt64(0), 0, 0, UInt64[])
+    function AtomicMalloc()
+        a = new(C_NULL, 0, 0, UInt64[])
         finalizer(a, dispose)
         a
     end
 end
 
-function alloc(a::GreedyAllocator, bytesize::Int)
+function (a::AtomicMalloc)(bytesize::Int)
     @assert bytesize >= 0
     bytesize == 0 && return MemBlock(UInt64(0),0)
 
@@ -29,13 +29,13 @@ function alloc(a::GreedyAllocator, bytesize::Int)
     MemBlock(dptr, bytesize)
 end
 
-function free(a::GreedyAllocator)
+function free(a::AtomicMalloc)
     a.offset = 0
     foreach(memfree, a.unused)
     empty!(a.unused)
 end
 
-function dispose(a::GreedyAllocator)
-    free(a)
-    memfree(a.dptr)
+function dispose(x::AtomicMalloc)
+    free(x)
+    memfree(x.ptr)
 end
