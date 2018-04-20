@@ -1,41 +1,39 @@
 mutable struct AtomicMalloc
-    ptr::Ptr{Void}
-    bytesize::Int
+    blocksize::Int
+    device::Int
+    ptrs::Vector{Ptr{Void}}
+    index::Int
     offset::Int
-    unused::Vector{UInt64}
 
-    function AtomicMalloc()
-        a = new(C_NULL, 0, 0, UInt64[])
-        finalizer(a, dispose)
-        a
+    function AtomicMalloc(blocksize::Int=1024*1000*1000)
+        m = new(blocksize, getdevice(), Ptr{Void}[], 0, 0)
+        # finalizer(m, dispose)
+        m
     end
 end
 
-function (a::AtomicMalloc)(bytesize::Int)
-    @assert bytesize >= 0
-    bytesize == 0 && return MemBlock(UInt64(0),0)
-
-    if bytesize + a.offset > a.bytesize
-        push!(a.unused, a.dptr)
-        a.bytesize = bytesize + a.offset
-        #while bytesize + mem.index > mem.bytesize
-        #    mem.bytesize *= 2
-        #end
-        a.dptr = memalloc_gc(a.bytesize)
-        a.offset = 0
+function (m::AtomicMalloc)(bytesize::Int)
+    @assert bytesize <= m.blocksize
+    if m.index == 0 || bytesize + m.offset > m.blocksize
+        if m.index == length(m.ptrs)
+            ptr = memalloc(m.blocksize)
+            push!(m.ptrs, ptr)
+        end
+        ptr = m.ptrs[m.index+1]
+        m.index += 1
+        m.offset = 0
     end
-    dptr = a.dptr + a.offset
-    a.offset += bytesize
-    MemBlock(dptr, bytesize)
+    m.offset += bytesize
+    MemBlock(ptr, bytesize)
 end
 
-function free(a::AtomicMalloc)
-    a.offset = 0
-    foreach(memfree, a.unused)
-    empty!(a.unused)
+function reset(m::AtomicMalloc)
+    m.index = 1
+    m.offset = 0
 end
 
-function dispose(x::AtomicMalloc)
-    free(x)
-    memfree(x.ptr)
+function dispose(m::AtomicMalloc)
+    setdevice(m.device) do
+        foreach(memfree, m.ptrs)
+    end
 end
